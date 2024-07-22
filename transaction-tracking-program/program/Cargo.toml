@@ -1,0 +1,9 @@
+[package]
+name = "lifi-transaction-tracking-program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+borsh = "1.5.1"
+borsh-derive = "1.5.1"
+solana-program = "=1.17.25"
