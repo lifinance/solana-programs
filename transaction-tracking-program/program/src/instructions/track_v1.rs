@@ -8,12 +8,16 @@ use crate::utils;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct TrackV1InstructionData {
-
+    pub transaction_id: [u8; 8],
+    pub integrator_id: Option<String>,
+    pub integrator_id_hash: Option<[u8; 4]>
 }
 
-pub fn process_instruction(_program_id: &Pubkey,
-                           accounts: &[AccountInfo],
-                           _instruction_data: TrackV1InstructionData) -> ProgramResult {
+pub fn process_track_v1_instruction(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    _instruction_data: TrackV1InstructionData
+) -> ProgramResult {
     msg!("LI.FI Track V1 instruction");
 
     // fetch and verify account-inputs

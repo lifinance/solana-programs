@@ -4,7 +4,12 @@ use solana_program::msg;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 
-pub fn get_verified_readonly_account<'a, 'b>(accounts_iter: &'a mut Iter<'a, AccountInfo<'b>>, matches_account: &Pubkey) ->  Result<&'a AccountInfo<'b>, ProgramError> {
+/// Returns the next account of an AccountInfo iterator if and only if it matches
+/// the correct public key and is readonly. Otherwise, it returns an error.
+pub fn get_verified_readonly_account<'a, 'b>(
+    accounts_iter: &'a mut Iter<'a, AccountInfo<'b>>,
+    matches_account: &Pubkey
+) ->  Result<&'a AccountInfo<'b>, ProgramError> {
     let account = next_account_info(accounts_iter)?;
     if account.key != matches_account {
         // Use string concatenation for efficiency

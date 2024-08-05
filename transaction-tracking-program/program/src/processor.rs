@@ -24,7 +24,7 @@ pub fn process_instruction(
         Ok(ix_data_object) => {
             match ix_data_object {
                 TrackingInstructionData::TrackV1(data) => {
-                    track_v1::process_instruction(_program_id, _accounts, data)
+                    track_v1::process_track_v1_instruction(_program_id, _accounts, data)
                 }
             }
         }

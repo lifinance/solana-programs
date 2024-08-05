@@ -1,0 +1,16 @@
+{
+  "name": "@lifi/solana-programs",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Lars Froelich",
+  "dependencies": {
+    "@solana/web3.js": "^1.95.2",
+    "borsher": "^3.5.0"
+  },
+  "private": true
+}
