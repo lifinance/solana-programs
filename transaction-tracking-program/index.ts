@@ -1,7 +1,7 @@
 type TrackingInstructionData =
     | {
         TrackV1: {
-            integrator: string;
+            transaction_id: Uint8Array;
         };
     };
 

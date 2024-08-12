@@ -8,9 +8,7 @@ use crate::utils;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct TrackV1InstructionData {
-    pub transaction_id: [u8; 8],
-    pub integrator_id: Option<String>,
-    pub integrator_id_hash: Option<[u8; 4]>
+    pub transaction_id: [u8; 9]
 }
 
 pub fn process_track_v1_instruction(
@@ -28,8 +26,9 @@ pub fn process_track_v1_instruction(
     let clock_info = Clock::from_account_info(&sysvar_clock_account)?;
     msg!("Current Slot: {}", clock_info.slot);
     msg!("Current Epoch: {}", clock_info.epoch);
-    
+    msg!("Transaction Id: {:X?}", _instruction_data.transaction_id);
+
     msg!("LI.FI Track V1 instruction completed");
 
-    return Ok(());
+    Ok(())
 }
