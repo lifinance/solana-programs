@@ -6,13 +6,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "exports": {
-    "./transaction-tracking": "./transaction-tracking-program/typescript-lib/index.ts"
-  },
   "author": "Lars Froelich",
   "dependencies": {
     "@solana/web3.js": "^1.95.2",
-    "borsher": "^3.5.0"
+    "@types/node": "^22.2.0",
+    "borsher": "^3.5.0",
+    "buffer": "^6.0.3"
   },
   "private": true
 }

@@ -1,1 +1,1 @@
-export { default as transactionTrackingProgram } from './transaction-tracking-program'
+export * as transactionTrackingProgram from './transaction-tracking-program'

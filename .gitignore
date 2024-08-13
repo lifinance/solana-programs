@@ -4,3 +4,6 @@
 # Rust/Cargo build output
 **target
 node_modules/
+
+# typescript compiler output
+**.js
