@@ -7,3 +7,4 @@ node_modules/
 
 # typescript compiler output
 **.js
+tsconfig.tsbuildinfo

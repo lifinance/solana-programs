@@ -7,11 +7,18 @@
   },
   "keywords": [],
   "author": "Lars Froelich",
+  "exports": {
+    "require": "./dist/index.js",
+    "import": "./dist/index.js"
+  },
   "dependencies": {
-    "@solana/web3.js": "^1.95.2",
-    "@types/node": "^22.2.0",
+    "@solana/web3.js": "^1.95.0",
     "borsher": "^3.5.0",
     "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "typescript": "5.5.4"
   },
   "private": true
 }
