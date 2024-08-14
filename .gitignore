@@ -6,4 +6,4 @@
 node_modules/
 
 # typescript compiler cache
-tsconfig.tsbuildinfo
+*.tsbuildinfo
