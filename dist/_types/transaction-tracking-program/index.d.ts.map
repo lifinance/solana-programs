@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../transaction-tracking-program/index.ts"],"names":[],"mappings":"AAAA,OAAO,EAAC,uBAAuB,EAAC,MAAM,8BAA8B,CAAC;AAErE,MAAM,MAAM,uBAAuB,GAC7B;IACE,OAAO,EAAE;QACL,cAAc,EAAE,UAAU,CAAC;KAC9B,CAAC;CACL,CAAC"}
