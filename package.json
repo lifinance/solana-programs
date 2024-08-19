@@ -6,16 +6,16 @@
   "author": "Lars Froelich",
   "exports": {
     ".": {
-      "types": "./src/_types/index.d.ts",
-      "import": "./src/_esm/index.js",
-      "default": "./src/_cjs/index.js"
+      "types": "./dist/_types/index.d.ts",
+      "import": "./dist/_esm/index.js",
+      "default": "./dist/_cjs/index.js"
     },
     "./package.json": "./package.json"
   },
-  "main": "./src/_cjs/index.js",
-  "module": "./src/_esm/index.js",
-  "types": "./src/_types/index.d.ts",
-  "typings": "./src/_types/index.d.ts",
+  "main": "./dist/_cjs/index.js",
+  "module": "./dist/_esm/index.js",
+  "types": "./dist/_types/index.d.ts",
+  "typings": "./dist/_types/index.d.ts",
   "scripts": {
     "build": "pnpm clean && pnpm build:cjs && pnpm build:esm && pnpm build:types",
     "build:cjs": "tsc --project ./tsconfig.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json",
