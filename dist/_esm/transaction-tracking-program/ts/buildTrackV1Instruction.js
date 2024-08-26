@@ -7,16 +7,25 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { SYSVAR_CLOCK_PUBKEY, TransactionInstruction } from "@solana/web3.js";
+import { PublicKey, SYSVAR_CLOCK_PUBKEY, TransactionInstruction } from "@solana/web3.js";
 import { serializeTrackingInstructionData } from "./trackingInstructionData";
-export function buildTrackV1Instruction(programId, transaction_id) {
+import { BorshSchema, borshSerialize } from "borsher";
+export function buildTrackV1Instruction(programId, transaction_id, epoch) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (transaction_id.length !== 9)
+        if (transaction_id.length !== 8)
             throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
+        const epoch_track_account = PublicKey.findProgramAddressSync([
+            borshSerialize(BorshSchema.u64, epoch)
+        ], programId)[0];
         return new TransactionInstruction({
             keys: [
                 {
                     pubkey: SYSVAR_CLOCK_PUBKEY,
+                    isSigner: false,
+                    isWritable: false,
+                },
+                {
+                    pubkey: epoch_track_account,
                     isSigner: false,
                     isWritable: false,
                 }
