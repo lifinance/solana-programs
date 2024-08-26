@@ -5,7 +5,7 @@ const buffer_1 = require("buffer");
 const borsher_1 = require("borsher");
 const Schema = borsher_1.BorshSchema.Enum({
     TrackV1: borsher_1.BorshSchema.Struct({
-        transaction_id: borsher_1.BorshSchema.Array(borsher_1.BorshSchema.u8, 9),
+        transaction_id: borsher_1.BorshSchema.Array(borsher_1.BorshSchema.u8, 8),
     }),
 });
 function serializeTrackingInstructionData(data) {

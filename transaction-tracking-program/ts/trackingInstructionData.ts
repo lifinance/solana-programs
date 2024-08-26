@@ -9,7 +9,7 @@ export type TrackingInstructionData =
 };
 const Schema: BorshSchema = BorshSchema.Enum({
     TrackV1: BorshSchema.Struct({
-        transaction_id: BorshSchema.Array(BorshSchema.u8, 9),
+        transaction_id: BorshSchema.Array(BorshSchema.u8, 8),
     }),
 })
 
