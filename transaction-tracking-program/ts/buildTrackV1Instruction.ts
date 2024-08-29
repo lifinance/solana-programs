@@ -1,6 +1,6 @@
 import {PublicKey, SYSVAR_CLOCK_PUBKEY, TransactionInstruction} from "@solana/web3.js";
 import {serializeTrackingInstructionData} from "./trackingInstructionData";
-import {BorshSchema, borshSerialize} from "borsher";
+import {deriveTrackingV1PdaAddress} from "./deriveTrackingV1PdaAddress";
 
 export async function buildTrackV1Instruction(
     programId: PublicKey,
@@ -10,12 +10,12 @@ export async function buildTrackV1Instruction(
     if (transaction_id.length !== 8)
         throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
 
-    const epoch_track_account = PublicKey.findProgramAddressSync(
-        [
-            borshSerialize(BorshSchema.u64, epoch)
-        ],
-        programId
-    )[0];
+    const epoch_track_account = deriveTrackingV1PdaAddress(programId, epoch);
+    const instruction_data = serializeTrackingInstructionData({
+        TrackV1: {
+            transaction_id
+        }
+    });
 
     return new TransactionInstruction({
         keys: [
@@ -31,10 +31,6 @@ export async function buildTrackV1Instruction(
             }
         ],
         programId: programId,
-        data:  serializeTrackingInstructionData({
-            TrackV1: {
-                transaction_id
-            }
-        })
+        data: instruction_data
     });
 }

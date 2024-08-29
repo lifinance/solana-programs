@@ -12,14 +12,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildTrackV1Instruction = buildTrackV1Instruction;
 const web3_js_1 = require("@solana/web3.js");
 const trackingInstructionData_1 = require("./trackingInstructionData");
-const borsher_1 = require("borsher");
+const deriveTrackingV1PdaAddress_1 = require("./deriveTrackingV1PdaAddress");
 function buildTrackV1Instruction(programId, transaction_id, epoch) {
     return __awaiter(this, void 0, void 0, function* () {
         if (transaction_id.length !== 8)
             throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
-        const epoch_track_account = web3_js_1.PublicKey.findProgramAddressSync([
-            (0, borsher_1.borshSerialize)(borsher_1.BorshSchema.u64, epoch)
-        ], programId)[0];
+        const epoch_track_account = (0, deriveTrackingV1PdaAddress_1.deriveTrackingV1PdaAddress)(programId, epoch);
+        const instruction_data = (0, trackingInstructionData_1.serializeTrackingInstructionData)({
+            TrackV1: {
+                transaction_id
+            }
+        });
         return new web3_js_1.TransactionInstruction({
             keys: [
                 {
@@ -34,11 +37,7 @@ function buildTrackV1Instruction(programId, transaction_id, epoch) {
                 }
             ],
             programId: programId,
-            data: (0, trackingInstructionData_1.serializeTrackingInstructionData)({
-                TrackV1: {
-                    transaction_id
-                }
-            })
+            data: instruction_data
         });
     });
 }

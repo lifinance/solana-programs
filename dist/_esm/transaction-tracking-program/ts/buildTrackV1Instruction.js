@@ -7,16 +7,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { PublicKey, SYSVAR_CLOCK_PUBKEY, TransactionInstruction } from "@solana/web3.js";
+import { SYSVAR_CLOCK_PUBKEY, TransactionInstruction } from "@solana/web3.js";
 import { serializeTrackingInstructionData } from "./trackingInstructionData";
-import { BorshSchema, borshSerialize } from "borsher";
+import { deriveTrackingV1PdaAddress } from "./deriveTrackingV1PdaAddress";
 export function buildTrackV1Instruction(programId, transaction_id, epoch) {
     return __awaiter(this, void 0, void 0, function* () {
         if (transaction_id.length !== 8)
             throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
-        const epoch_track_account = PublicKey.findProgramAddressSync([
-            borshSerialize(BorshSchema.u64, epoch)
-        ], programId)[0];
+        const epoch_track_account = deriveTrackingV1PdaAddress(programId, epoch);
+        const instruction_data = serializeTrackingInstructionData({
+            TrackV1: {
+                transaction_id
+            }
+        });
         return new TransactionInstruction({
             keys: [
                 {
@@ -31,11 +34,7 @@ export function buildTrackV1Instruction(programId, transaction_id, epoch) {
                 }
             ],
             programId: programId,
-            data: serializeTrackingInstructionData({
-                TrackV1: {
-                    transaction_id
-                }
-            })
+            data: instruction_data
         });
     });
 }
