@@ -5,4 +5,5 @@ export type TrackingInstructionData = {
     };
 };
 export declare function serializeTrackingInstructionData(data: TrackingInstructionData): Buffer;
+export declare function deserializeTrackingInstructionData(data: Uint8Array): TrackingInstructionData;
 //# sourceMappingURL=trackingInstructionData.d.ts.map

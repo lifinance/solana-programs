@@ -1,5 +1,5 @@
 import {Buffer} from "buffer";
-import {BorshSchema, borshSerialize} from "borsher";
+import {borshDeserialize, BorshSchema, borshSerialize} from "borsher";
 
 export type TrackingInstructionData =
     | {
@@ -17,5 +17,9 @@ export function serializeTrackingInstructionData(data: TrackingInstructionData):
     return Buffer.from(
         borshSerialize(Schema, data)
     )
+}
+
+export function deserializeTrackingInstructionData(data: Uint8Array): TrackingInstructionData {
+    return borshDeserialize<TrackingInstructionData>(Schema, data)
 }
 

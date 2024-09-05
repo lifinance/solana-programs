@@ -4,16 +4,16 @@ import {deriveTrackingV1PdaAddress} from "./deriveTrackingV1PdaAddress";
 
 export async function buildTrackV1Instruction(
     programId: PublicKey,
-    transaction_id: Uint8Array,
+    transactionId: Uint8Array,
     epoch: bigint
 ): Promise<TransactionInstruction> {
-    if (transaction_id.length !== 8)
-        throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
+    if (transactionId.length !== 8)
+        throw new Error('Invalid transaction_id length (' + transactionId.length + ' bytes)');
 
     const epoch_track_account = deriveTrackingV1PdaAddress(programId, epoch);
     const instruction_data = serializeTrackingInstructionData({
         TrackV1: {
-            transaction_id
+            transaction_id: transactionId
         }
     });
 

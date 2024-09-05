@@ -10,14 +10,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { SYSVAR_CLOCK_PUBKEY, TransactionInstruction } from "@solana/web3.js";
 import { serializeTrackingInstructionData } from "./trackingInstructionData";
 import { deriveTrackingV1PdaAddress } from "./deriveTrackingV1PdaAddress";
-export function buildTrackV1Instruction(programId, transaction_id, epoch) {
+export function buildTrackV1Instruction(programId, transactionId, epoch) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (transaction_id.length !== 8)
-            throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
+        if (transactionId.length !== 8)
+            throw new Error('Invalid transaction_id length (' + transactionId.length + ' bytes)');
         const epoch_track_account = deriveTrackingV1PdaAddress(programId, epoch);
         const instruction_data = serializeTrackingInstructionData({
             TrackV1: {
-                transaction_id
+                transaction_id: transactionId
             }
         });
         return new TransactionInstruction({

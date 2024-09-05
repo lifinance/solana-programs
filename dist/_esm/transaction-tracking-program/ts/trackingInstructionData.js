@@ -1,5 +1,5 @@
 import { Buffer } from "buffer";
-import { BorshSchema, borshSerialize } from "borsher";
+import { borshDeserialize, BorshSchema, borshSerialize } from "borsher";
 const Schema = BorshSchema.Enum({
     TrackV1: BorshSchema.Struct({
         transaction_id: BorshSchema.Array(BorshSchema.u8, 8),
@@ -7,4 +7,7 @@ const Schema = BorshSchema.Enum({
 });
 export function serializeTrackingInstructionData(data) {
     return Buffer.from(borshSerialize(Schema, data));
+}
+export function deserializeTrackingInstructionData(data) {
+    return borshDeserialize(Schema, data);
 }

@@ -13,14 +13,14 @@ exports.buildTrackV1Instruction = buildTrackV1Instruction;
 const web3_js_1 = require("@solana/web3.js");
 const trackingInstructionData_1 = require("./trackingInstructionData");
 const deriveTrackingV1PdaAddress_1 = require("./deriveTrackingV1PdaAddress");
-function buildTrackV1Instruction(programId, transaction_id, epoch) {
+function buildTrackV1Instruction(programId, transactionId, epoch) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (transaction_id.length !== 8)
-            throw new Error('Invalid transaction_id length (' + transaction_id.length + ' bytes)');
+        if (transactionId.length !== 8)
+            throw new Error('Invalid transaction_id length (' + transactionId.length + ' bytes)');
         const epoch_track_account = (0, deriveTrackingV1PdaAddress_1.deriveTrackingV1PdaAddress)(programId, epoch);
         const instruction_data = (0, trackingInstructionData_1.serializeTrackingInstructionData)({
             TrackV1: {
-                transaction_id
+                transaction_id: transactionId
             }
         });
         return new web3_js_1.TransactionInstruction({
