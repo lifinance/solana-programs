@@ -1,4 +1,4 @@
-import { CompiledInstruction } from "@solana/web3.js";
 import { TrackingInstructionData } from "../index";
-export declare function decodeTrackingInstruction(instruction: CompiledInstruction): Promise<TrackingInstructionData>;
+export declare function decodeTrackingInstruction(base58InstructionData: string): Promise<TrackingInstructionData>;
+export declare function decodeTrackingInstructionFromBytes(instructionDataRawBytes: Uint8Array): Promise<TrackingInstructionData>;
 //# sourceMappingURL=decodeTrackingInstruction.d.ts.map

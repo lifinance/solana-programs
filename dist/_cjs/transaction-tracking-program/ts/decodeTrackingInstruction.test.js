@@ -12,11 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const decodeTrackingInstruction_1 = require("./decodeTrackingInstruction");
 const globals_1 = require("@jest/globals");
 (0, globals_1.test)('decodeTrackingInstruction', () => __awaiter(void 0, void 0, void 0, function* () {
-    const trackingInstruction = yield (0, decodeTrackingInstruction_1.decodeTrackingInstruction)({
-        accounts: [],
-        programIdIndex: 0,
-        data: '1An6UebxCZV',
-    });
+    const trackingInstruction = yield (0, decodeTrackingInstruction_1.decodeTrackingInstruction)('1An6UebxCZV');
     (0, globals_1.expect)(trackingInstruction).toEqual({
         TrackV1: { transaction_id: Array.from([1, 2, 3, 4, 5, 6, 7, 0]) }
     });

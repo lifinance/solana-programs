@@ -9,9 +9,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { deserializeTrackingInstructionData } from "./trackingInstructionData";
 import bs58 from "bs58";
-export function decodeTrackingInstruction(instruction) {
+export function decodeTrackingInstruction(base58InstructionData) {
     return __awaiter(this, void 0, void 0, function* () {
-        const rawData = bs58.decode(instruction.data);
-        return deserializeTrackingInstructionData(new Uint8Array(rawData));
+        return decodeTrackingInstructionFromBytes(bs58.decode(base58InstructionData));
+    });
+}
+export function decodeTrackingInstructionFromBytes(instructionDataRawBytes) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return deserializeTrackingInstructionData(instructionDataRawBytes);
     });
 }

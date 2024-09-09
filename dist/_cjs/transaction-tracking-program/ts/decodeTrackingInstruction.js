@@ -13,11 +13,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.decodeTrackingInstruction = decodeTrackingInstruction;
+exports.decodeTrackingInstructionFromBytes = decodeTrackingInstructionFromBytes;
 const trackingInstructionData_1 = require("./trackingInstructionData");
 const bs58_1 = __importDefault(require("bs58"));
-function decodeTrackingInstruction(instruction) {
+function decodeTrackingInstruction(base58InstructionData) {
     return __awaiter(this, void 0, void 0, function* () {
-        const rawData = bs58_1.default.decode(instruction.data);
-        return (0, trackingInstructionData_1.deserializeTrackingInstructionData)(new Uint8Array(rawData));
+        return decodeTrackingInstructionFromBytes(bs58_1.default.decode(base58InstructionData));
+    });
+}
+function decodeTrackingInstructionFromBytes(instructionDataRawBytes) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return (0, trackingInstructionData_1.deserializeTrackingInstructionData)(instructionDataRawBytes);
     });
 }
