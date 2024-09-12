@@ -9,9 +9,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { decodeTrackingInstruction } from "./decodeTrackingInstruction";
 import { test, expect } from "@jest/globals";
-test('decodeTrackingInstruction', () => __awaiter(void 0, void 0, void 0, function* () {
-    const trackingInstruction = yield decodeTrackingInstruction('1An6UebxCZV');
+test("decodeTrackingInstruction", () => __awaiter(void 0, void 0, void 0, function* () {
+    const trackingInstruction = yield decodeTrackingInstruction("1An6UebxCZV");
     expect(trackingInstruction).toEqual({
-        TrackV1: { transaction_id: Array.from([1, 2, 3, 4, 5, 6, 7, 0]) }
+        TrackV1: { transaction_id: Array.from([1, 2, 3, 4, 5, 6, 7, 0]) },
     });
 }));

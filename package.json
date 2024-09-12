@@ -17,12 +17,14 @@
   "types": "./dist/_types/index.d.ts",
   "typings": "./dist/_types/index.d.ts",
   "scripts": {
-    "build": "pnpm clean && pnpm build:cjs && pnpm build:esm && pnpm build:types",
-    "build:cjs": "tsc --project ./tsconfig.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json",
-    "build:esm": "tsc --project ./tsconfig.json --module es2015 --outDir ./dist/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./dist/_esm/package.json",
-    "build:types": "tsc --project ./tsconfig.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap",
+    "build": "pnpm clean && pnpm build:cjs && pnpm build:esm && pnpm build:types && eslint --fix --cache .",
+    "build:cjs": "tsc --project ./tsconfig.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json  && eslint --fix --cache .",
+    "build:esm": "tsc --project ./tsconfig.json --module es2015 --outDir ./dist/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./dist/_esm/package.json && eslint --fix --cache .",
+    "build:types": "tsc --project ./tsconfig.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap && eslint --fix --cache .",
     "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo",
-    "test": "jest"
+    "test": "jest",
+    "lint:fix": "eslint . --fix --ext .ts",
+    "lint:fix:cached": "eslint . --cache --fix --ext .ts"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.0",
@@ -36,7 +38,10 @@
     "@types/eslint__js": "^8.42.3",
     "@types/node": "^22.1.0",
     "eslint": "^9.10.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
     "jest": "^29.7.0",
+    "prettier": "3.3.3",
     "ts-jest": "^29.2.5",
     "typescript": "5.5.4",
     "typescript-eslint": "^8.5.0"
