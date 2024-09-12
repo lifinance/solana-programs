@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../../lifi-solana-program-1/ts/index.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,OAAO,MAAM,wBAAwB,CAAC;AAClD,cAAc,mBAAmB,CAAC;AAElC,MAAM,MAAM,eAAe,GAAG;IAC5B,OAAO,EAAE;QACP,cAAc,EAAE,UAAU,CAAC;KAC5B,CAAC;CACH,CAAC"}

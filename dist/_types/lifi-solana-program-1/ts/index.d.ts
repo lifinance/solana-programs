@@ -1,5 +1,5 @@
-export * as TrackV1 from "./ts/instructions/trackv1";
-export * from "./ts/instructionData";
+export * as TrackV1 from "./instructions/trackv1";
+export * from "./instructionData";
 export type InstructionData = {
   TrackV1: {
     transaction_id: Uint8Array;

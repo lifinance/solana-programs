@@ -27,5 +27,5 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrackV1 = void 0;
-exports.TrackV1 = __importStar(require("./ts/instructions/trackv1"));
-__exportStar(require("./ts/instructionData"), exports);
+exports.TrackV1 = __importStar(require("./instructions/trackv1"));
+__exportStar(require("./instructionData"), exports);

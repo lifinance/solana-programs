@@ -1,5 +1,5 @@
 import { test, expect } from "@jest/globals";
-import { TrackV1 } from "..";
+import { TrackV1 } from ".";
 import { PublicKey } from "@solana/web3.js";
 import { deserializeBase58InstructionData } from "./instructionData";
 import bs58 from "bs58";

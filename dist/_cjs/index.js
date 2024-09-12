@@ -24,4 +24,4 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.lifiSolanaProgram1 = void 0;
-exports.lifiSolanaProgram1 = __importStar(require("./lifi-solana-program-1"));
+exports.lifiSolanaProgram1 = __importStar(require("./lifi-solana-program-1/ts"));
