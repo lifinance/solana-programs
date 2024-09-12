@@ -1,5 +1,4 @@
-import {PublicKey, SYSVAR_CLOCK_PUBKEY, TransactionInstruction} from "@solana/web3.js";
-import {serializeTrackingInstructionData} from "./trackingInstructionData";
+import {PublicKey} from "@solana/web3.js";
 import {BorshSchema, borshSerialize} from "borsher";
 
 export function deriveTrackingV1PdaAddress(
