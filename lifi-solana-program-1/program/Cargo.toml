@@ -1,6 +1,6 @@
 [package]
-name = "lifi-transaction-tracking-program"
-version = "0.1.0"
+name = "lifi-solana-program-1"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]

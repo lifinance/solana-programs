@@ -8,21 +8,23 @@ use solana_program::{
 };
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub enum TrackingInstructionData {
+pub enum InstructionData {
     TrackV1(TrackV1InstructionData),
 }
 
 // set `process_instruction` as the program's main entrypoint
 entrypoint!(process_instruction);
+
+/// The entrypoint function for the entire program - every instruction call executes this function
 pub fn process_instruction(
     _program_id: &Pubkey,
     _accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
     // Deserialize the instruction data using Borsh, then execute the corresponding instruction fn
-    match TrackingInstructionData::try_from_slice(instruction_data) {
+    match InstructionData::try_from_slice(instruction_data) {
         Ok(ix_data_object) => match ix_data_object {
-            TrackingInstructionData::TrackV1(data) => {
+            InstructionData::TrackV1(data) => {
                 track_v1::process_track_v1_instruction(_program_id, _accounts, data)
             }
         },

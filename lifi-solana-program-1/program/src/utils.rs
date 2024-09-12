@@ -4,8 +4,13 @@ use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 use std::slice::Iter;
 
-/// Returns the next account of an AccountInfo iterator if and only if it matches
+/// Returns the next account of an AccountInfo iterator **if and only if** it matches
 /// the correct public key and is readonly. Otherwise, it returns an error.
+///
+/// * `accounts_iter` - The iterator to fetch the next account from
+/// * `matches_account` - The public key that the account must match
+///
+/// Returns the next account if it matches the public key and is readonly, otherwise a `ProgramError`
 pub fn get_verified_readonly_account<'a, 'b>(
     accounts_iter: &'_ mut Iter<'a, AccountInfo<'b>>,
     matches_account: &Pubkey,
@@ -26,8 +31,11 @@ pub fn get_verified_readonly_account<'a, 'b>(
     Ok(account)
 }
 
-/// Returns the next account of an AccountInfo iterator if and only if it is readonly.
-/// Otherwise, it returns an error.
+/// Returns the next account of an AccountInfo iterator **if and only if** it is readonly.
+///
+/// * `accounts_iter` - The iterator to fetch the next account from
+///
+/// Returns the next account if it is readonly, otherwise a `ProgramError`
 pub fn get_unverified_readonly_account<'a, 'b>(
     accounts_iter: &'a mut Iter<'a, AccountInfo<'b>>,
 ) -> Result<&'a AccountInfo<'b>, ProgramError> {
@@ -39,7 +47,7 @@ pub fn get_unverified_readonly_account<'a, 'b>(
 
 /**
  * Asserts that an account is readonly.
- * If the account is writable, it logs an error and returns an error.
+ * If the account is writable, it logs an error and returns a `ProgramError`
  */
 pub fn assert_account_is_readonly(account: &AccountInfo) -> Result<(), ProgramError> {
     if account.is_writable {
@@ -49,12 +57,17 @@ pub fn assert_account_is_readonly(account: &AccountInfo) -> Result<(), ProgramEr
     Ok(())
 }
 
-const HEX_CHAR_LOOKUP: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-];
 
-// this avoids using the `format!` macro which would cost more compute units
+
+/// Converts a vector of bytes to a hex-encoded string
+///
+/// This custom implementation avoids using the `format!` macro
+/// which would cost more compute units and bytecode
 pub fn vec_u8to_hex_string(array: &[u8]) -> String {
+    static HEX_CHAR_LOOKUP: [char; 16] = [
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+    ];
+
     let mut hex_string = String::new();
     for byte in array {
         hex_string.push(HEX_CHAR_LOOKUP[(byte >> 4) as usize]);
