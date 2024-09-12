@@ -1,1 +1,1 @@
-export * as transactionTrackingProgram from "./transaction-tracking-program";
+export * as lifiSolanaProgram1 from "./lifi-solana-program-1";

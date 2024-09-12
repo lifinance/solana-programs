@@ -1,2 +1,2 @@
-import * as transactionTrackingProgram_1 from "./transaction-tracking-program";
-export { transactionTrackingProgram_1 as transactionTrackingProgram };
+import * as lifiSolanaProgram1_1 from "./lifi-solana-program-1";
+export { lifiSolanaProgram1_1 as lifiSolanaProgram1 };

@@ -22,6 +22,10 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.lifiSolanaProgram1 = void 0;
-exports.lifiSolanaProgram1 = __importStar(require("./lifi-solana-program-1"));
+exports.TrackV1 = void 0;
+exports.TrackV1 = __importStar(require("./ts/instructions/trackv1"));
+__exportStar(require("./ts/instructionData"), exports);
