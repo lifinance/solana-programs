@@ -47,7 +47,7 @@ jobs:
         run: pnpm test
       - name: Publish to npm
         run: |
-          pnpm publish --access public \
+          pnpm publish --no-git-checks --access public \
           ${{ contains(github.ref_name, 'alpha') && '--tag alpha' || contains(github.ref_name, 'beta') && '--tag beta' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
