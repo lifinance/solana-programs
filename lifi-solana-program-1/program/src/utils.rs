@@ -75,3 +75,20 @@ pub fn vec_u8to_hex_string(array: &[u8]) -> String {
     }
     hex_string
 }
+
+/// Security.txt macro for embedding security.txt data in the program binary.
+///
+/// Apache-2.0-licensed by neodyme labs: https://github.com/neodyme-labs/solana-security-txt
+#[macro_export]
+macro_rules! security_txt {
+    ($($name:ident: $value:expr),*) => {
+        #[cfg_attr(target_arch = "bpf", link_section = ".security.txt")]
+        #[allow(dead_code)]
+        #[no_mangle]
+        pub static security_txt: &str = concat! {
+            "=======BEGIN SECURITY.TXT V1=======\0",
+            $(stringify!($name), "\0", $value, "\0",)*
+            "=======END SECURITY.TXT V1=======\0"
+        };
+    };
+}

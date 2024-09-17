@@ -12,8 +12,6 @@ pub enum InstructionData {
     TrackV1(TrackV1InstructionData),
 }
 
-// set `process_instruction` as the program's main entrypoint
-entrypoint!(process_instruction);
 
 /// The entrypoint function for the entire program - every instruction call executes this function
 pub fn process_instruction(
