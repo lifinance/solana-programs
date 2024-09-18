@@ -1,5 +1,5 @@
-use solana_program::entrypoint;
 use processor::process_instruction;
+use solana_program::entrypoint;
 
 mod error;
 mod instructions;
@@ -11,7 +11,6 @@ mod utils;
 entrypoint!(process_instruction);
 
 // define the security.txt file for the program
-#[cfg(not(feature = "no-entrypoint"))]
 security_txt! {
     // Required fields
     name: "LI.FI Solana Program 1",

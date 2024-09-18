@@ -57,8 +57,6 @@ pub fn assert_account_is_readonly(account: &AccountInfo) -> Result<(), ProgramEr
     Ok(())
 }
 
-
-
 /// Converts a vector of bytes to a hex-encoded string
 ///
 /// This custom implementation avoids using the `format!` macro
@@ -91,4 +89,28 @@ macro_rules! security_txt {
             "=======END SECURITY.TXT V1=======\0"
         };
     };
+}
+
+#[test]
+fn test_vec_u8to_hex_string() {
+    let test_array = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+    assert_eq!(vec_u8to_hex_string(&test_array), "010203040506");
+
+    let empty_array = [];
+    assert_eq!(vec_u8to_hex_string(&empty_array), "");
+
+    let empty_vec = vec![];
+    assert_eq!(vec_u8to_hex_string(&empty_vec), "");
+
+    let single_byte_array = [0x01];
+    assert_eq!(vec_u8to_hex_string(&single_byte_array), "01");
+
+    let lowest_byte_array = [0x00];
+    assert_eq!(vec_u8to_hex_string(&lowest_byte_array), "00");
+
+    let largest_byte_array = [0xFF];
+    assert_eq!(vec_u8to_hex_string(&largest_byte_array), "FF");
+
+    let integer_byte_array = [42];
+    assert_eq!(vec_u8to_hex_string(&integer_byte_array), "2A");
 }

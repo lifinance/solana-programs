@@ -12,7 +12,6 @@ pub enum InstructionData {
     TrackV1(TrackV1InstructionData),
 }
 
-
 /// The entrypoint function for the entire program - every instruction call executes this function
 pub fn process_instruction(
     _program_id: &Pubkey,
