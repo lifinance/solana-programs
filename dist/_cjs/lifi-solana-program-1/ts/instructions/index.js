@@ -22,12 +22,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PROGRAM_ADDRESS = exports.Instructions = void 0;
-const web3_js_1 = require("@solana/web3.js");
-exports.Instructions = __importStar(require("./instructions"));
-__exportStar(require("./instructionData"), exports);
-exports.PROGRAM_ADDRESS = new web3_js_1.PublicKey("3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br");
+exports.TrackV1 = void 0;
+exports.TrackV1 = __importStar(require("./trackv1"));

@@ -1,8 +1,20 @@
 [^ back to docs](../README.md)
 
-# lifi-solana-program-1
+# LI.FI Solana Program 1
 This program is used by LI.FI primarily to track on-chain transactions generated using the LI.FI backend/API.
-It supports the following instructions:
+
+### Building
+To build the program via cargo: ```cargo build-sbf --manifest-path=./program/Cargo.toml --sbf-out-dir=./program/target/so```
+
+To build the program via https://github.com/Ellipsis-Labs/solana-verifiable-build?tab=readme-ov-file#solana-verify-cli: ```solana-verify build ./program```
+
+### Testing
+To run the program tests: ```cargo test --manifest-path=./program/Cargo.toml```
+
+---------------
+
+## Instructions
+The program supports the following instructions:
 
 ### `TrackV1` - Track a transaction on-chain
 Source Code: [src/instructions/track_v1.rs](./program/src/instructions/track_v1.rs)

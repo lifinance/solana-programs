@@ -1,5 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
-import * as TrackV1_1 from "./instructions/trackv1";
-export { TrackV1_1 as TrackV1 };
+import * as Instructions_1 from "./instructions";
+export { Instructions_1 as Instructions };
 export * from "./instructionData";
-export const LIFI_PROGRAM_1_ADDRESS = new PublicKey("3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br");
+/**
+ * The address of the program on both the Solana Mainnet and Devnet clusters
+ */
+export const PROGRAM_ADDRESS = new PublicKey("3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br");

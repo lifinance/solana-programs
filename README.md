@@ -7,3 +7,12 @@ and a `ts` folder containing the TypeScript bindings for the program.
 For now, LI.FI only uses one program on Solana:
 ## [lifi-solana-program-1](./lifi-solana-program-1/README.md)
 This program is used by LI.FI primarily to track on-chain transactions generated using the LI.FI backend/API.
+
+# How to
+## Typescript
+To build the typescript bindings: ```pnpm build```
+
+To run the typescript test suite (jest): ```pnpm test```
+
+## Solana
+- [lifi-solana-program-1](./lifi-solana-program-1/README.md)

@@ -1,8 +1,11 @@
 import { test, expect } from "@jest/globals";
-import { TrackV1 } from ".";
 import { PublicKey } from "@solana/web3.js";
-import { deserializeBase58InstructionData } from "./instructionData";
 import bs58 from "bs58";
+import {
+  Instructions,
+  PROGRAM_ADDRESS,
+  deserializeBase58InstructionData,
+} from "./";
 
 test("decode trackV1 instruction", async () => {
   const trackingInstructionData =
@@ -14,8 +17,8 @@ test("decode trackV1 instruction", async () => {
 });
 
 test("build and decode trackV1 instruction", async () => {
-  const trackingInstruction = TrackV1.buildInstruction(
-    new PublicKey("8pt8kirWXwkMwRCkGrRHJYR7R8JKcYzdzEyWqfGj1FFa"),
+  const trackingInstruction = Instructions.TrackV1.buildInstruction(
+    PROGRAM_ADDRESS,
     new Uint8Array([1, 2, 3, 4, 5, 6, 7, 0]),
     600n,
   );
@@ -31,7 +34,7 @@ test("build and decode trackV1 instruction", async () => {
 
 test("reject invalid transaction id length", async () => {
   expect(() =>
-    TrackV1.buildInstruction(
+    Instructions.TrackV1.buildInstruction(
       new PublicKey("8pt8kirWXwkMwRCkGrRHJYR7R8JKcYzdzEyWqfGj1FFa"),
       new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]),
       600n,
