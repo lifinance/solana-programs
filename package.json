@@ -1,6 +1,6 @@
 {
   "name": "@lifi/solana-programs",
-  "version": "0.1.10",
+  "version": "0.1.11-alpha.1",
   "description": "",
   "type": "module",
   "keywords": [],
@@ -48,5 +48,10 @@
     "typescript": "5.5.4",
     "typescript-eslint": "^8.5.0",
     "vitest": "^2.1.5"
-  }
+  },
+  "files": [
+    "dist/**",
+    "lifi-solana-program-1/ts/**"
+  ],
+  "packageManager": "pnpm@9.14.2"
 }
