@@ -1,1 +1,1 @@
-export * as lifiSolanaProgram1 from "./lifi-solana-program-1/ts";
+export * as lifiSolanaProgram1 from "./lifi-solana-program-1/ts/index.js";
