@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.12](https://github.com/lifinance/solana-programs/compare/v0.1.11...v0.1.12) (2024-11-25)
+
+
+### Bug Fixes
+
+* add missing *.js extension ([f49aa27](https://github.com/lifinance/solana-programs/commit/f49aa27616cdabf115ce8d2726e1a0550c380bf2))
+
 ### [0.1.11](https://github.com/lifinance/solana-programs/compare/v0.1.10...v0.1.11) (2024-11-25)
 
 
