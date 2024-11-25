@@ -5,7 +5,7 @@ import {
   Instructions,
   PROGRAM_ADDRESS,
   deserializeBase58InstructionData,
-} from "./";
+} from "./index.js";
 
 test("decode trackV1 instruction", async () => {
   const trackingInstructionData =
