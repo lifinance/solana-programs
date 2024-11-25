@@ -1,6 +1,6 @@
 {
   "name": "@lifi/solana-programs",
-  "version": "0.1.6",
+  "version": "0.1.9",
   "description": "",
   "type": "module",
   "keywords": [],
@@ -25,7 +25,10 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo",
     "test": "vitest",
     "lint:fix": "eslint . --fix --ext .ts",
-    "lint:fix:cached": "eslint . --cache --fix --ext .ts"
+    "lint:fix:cached": "eslint . --cache --fix --ext .ts",
+    "release": "standard-version -a",
+    "release:alpha": "standard-version -a --prerelease alpha --skip.changelog",
+    "release:beta": "standard-version -a --prerelease beta --skip.changelog"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.0",
@@ -35,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
+    "standard-version": "^9.5.0",
     "@types/eslint__js": "^8.42.3",
     "@types/node": "^22.1.0",
     "eslint": "^9.10.0",
