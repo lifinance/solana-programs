@@ -1,4 +1,4 @@
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 import { PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
 import {
