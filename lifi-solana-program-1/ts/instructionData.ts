@@ -37,7 +37,7 @@ export function serializeInstructionData(data: InstructionData): Buffer {
  * @returns The deserialized instruction data.
  */
 export function deserializeBinaryInstructionData(
-  binaryInstructionData: Uint8Array
+  binaryInstructionData: Uint8Array,
 ): InstructionData {
   return borshDeserialize<InstructionData>(Schema, binaryInstructionData);
 }
@@ -50,7 +50,7 @@ export function deserializeBinaryInstructionData(
  * @returns The deserialized instruction data.
  */
 export function deserializeBase58InstructionData(
-  base58InstructionData: string
+  base58InstructionData: string,
 ): InstructionData {
   return deserializeBinaryInstructionData(bs58.decode(base58InstructionData));
 }

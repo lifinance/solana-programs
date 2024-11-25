@@ -1,17 +1,39 @@
 {
   "compilerOptions": {
-    "lib": ["es2020"],
-    "target": "es2020",
-    "strict": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "module": "NodeNext",
+    "target": "ES2021", // Setting this to ES2021 enables native support for Node v16+: https://github.com/microsoft/TypeScript/wiki/Node-Target-Mapping.
+    "lib": [
+      "ES2022" // By using ES2022 we get access to the .cause property on Error instances.
+    ],
+    "moduleResolution": "NodeNext",
     "declaration": true /* Generates corresponding '.d.ts' file. */,
-    "outDir": "dist", /* Redirect output structure to the directory. */
+    "outDir": "dist" /* Redirect output structure to the directory. */,
     "baseUrl": "./",
     "rootDir": "./",
     "composite": true,
     "noEmitOnError": false,
+    "incremental": true,
+    // Type checking
+    "strict": true,
+    "useDefineForClassFields": true, // Not enabled by default in strict mode unless we bump target to ES2022.
+    "noFallthroughCasesInSwitch": true, // Not enabled by default in strict mode.
+    "noImplicitReturns": true, // Not enabled by default in strict mode.
+    "useUnknownInCatchVariables": true, // TODO: This would normally be enabled in strict mode but would require some adjustments to the codebase.
+    "noImplicitOverride": true, // Not enabled by default in strict mode.
+    "noUnusedLocals": true, // Not enabled by default in strict mode.
+    "noUnusedParameters": true, // Not enabled by default in strict mode.
+    // JavaScript support
+    "allowJs": false,
+    "checkJs": false,
+    // Interop constraints
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": false,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    // Language and environment
+
+    // Skip type checking for node modules
+    "skipLibCheck": true
   },
   "exclude": ["dist"]
 }

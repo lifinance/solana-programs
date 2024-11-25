@@ -19,9 +19,9 @@
   "typings": "./dist/_types/index.d.ts",
   "scripts": {
     "build": "pnpm clean && pnpm build:cjs && pnpm build:esm && pnpm build:types && eslint --fix --cache .",
-    "build:cjs": "tsc --project ./tsconfig.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json  && eslint --fix --cache .",
-    "build:esm": "tsc --project ./tsconfig.json --module es2015 --outDir ./dist/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./dist/_esm/package.json && eslint --fix --cache .",
-    "build:types": "tsc --project ./tsconfig.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap && eslint --fix --cache .",
+    "build:cjs": "tsc --project ./tsconfig.build.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json  && eslint --fix --cache .",
+    "build:esm": "tsc --project ./tsconfig.build.json --module es2020 --outDir ./dist/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./dist/_esm/package.json && eslint --fix --cache .",
+    "build:types": "tsc --project ./tsconfig.build.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap && eslint --fix --cache .",
     "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo",
     "test": "vitest",
     "lint:fix": "eslint . --fix --ext .ts",
