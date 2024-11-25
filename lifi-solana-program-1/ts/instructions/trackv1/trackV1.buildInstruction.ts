@@ -3,17 +3,17 @@ import {
   SYSVAR_CLOCK_PUBKEY,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { serializeInstructionData } from "../../instructionData";
-import { derivePdaAddress } from "./trackV1.derivePdaAddress";
+import { serializeInstructionData } from "../../instructionData.js";
+import { derivePdaAddress } from "./trackV1.derivePdaAddress.js";
 
 export function buildInstruction(
   programId: PublicKey,
   transactionId: Uint8Array,
-  epoch: bigint,
+  epoch: bigint
 ): TransactionInstruction {
   if (transactionId.length !== 8)
     throw new Error(
-      "Invalid transaction_id length (" + transactionId.length + " bytes)",
+      "Invalid transaction_id length (" + transactionId.length + " bytes)"
     );
 
   const epoch_track_account = derivePdaAddress(programId, epoch);
