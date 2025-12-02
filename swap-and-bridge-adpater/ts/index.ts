@@ -6,10 +6,10 @@ export * from "./instructionData.js"
 /**
  * Router program ID for localnet and devnet
  */
-export const PROGRAM_ID_DEVNET = new PublicKey("A8BUtjHueKntgnFD1ZQyPgBPrLd6hYsxmvxS74c9Y8cd")
+export const PROGRAM_ID_DEVNET = new PublicKey("75uzRTFJRYCtNHGHYiLmcL57no3DDZtvnGbqhztLJnKf")
 
 /**
  * Router program ID on mainnet
  * Update after mainnet deployment
  */
-export const PROGRAM_ID_MAINNET = new PublicKey("A8BUtjHueKntgnFD1ZQyPgBPrLd6hYsxmvxS74c9Y8cd")
+export const PROGRAM_ID = new PublicKey("75uzRTFJRYCtNHGHYiLmcL57no3DDZtvnGbqhztLJnKf")

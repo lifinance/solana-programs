@@ -4,11 +4,12 @@ use anchor_spl::{
     token::Mint,
 };
 
-// Adapter modules
 mod adapters;
+mod utils;
+
 use adapters::unit;
 
-declare_id!("21eReVSqk2xxtuLDWof4e5gHsQuxzrBxMdzD1BKL6KUe");
+declare_id!("75uzRTFJRYCtNHGHYiLmcL57no3DDZtvnGbqhztLJnKf");
 
 // ------------------------------------------------------------
 // PROGRAM
@@ -72,11 +73,25 @@ pub mod router {
         require!(amount > 0, ErrorCode::EmptyVault);
         require!(amount >= params.min_amount, ErrorCode::SlippageExceeded);
 
-        // 7) Dispatch to correct adapter
+        // 7) Dispatch to correct adapter (transfers all tokens from vault)
         match params.adapter_id {
-            0 => unit::bridge_via_unit(&ctx, &params, amount, vault_bump),
-            _ => Err(ErrorCode::UnknownAdapter.into()),
-        }
+            0 => unit::bridge_via_unit(&ctx, &params, amount, vault_bump)?,
+            _ => return Err(ErrorCode::UnknownAdapter.into()),
+        };
+
+        // 8) Close the intermediate vault account (returns rent to payer)
+        // This will fail if balance > 0, ensuring all funds were transferred
+        utils::close_vault(
+            ctx.accounts.intermediate_vault.to_account_info(),
+            ctx.accounts.vault_authority.to_account_info(),
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            &params.route_seed,
+            &ctx.accounts.mint.key(),
+            vault_bump,
+        )?;
+
+        Ok(())
     }
 }
 

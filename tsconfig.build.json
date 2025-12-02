@@ -2,5 +2,30 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "moduleResolution": "node"
-  }
+  },
+  "exclude": [
+    "dist",
+    "**/*.test.ts",
+    "**/e2e-test*.ts",
+    "**/encoding-demo.ts",
+    "**/devnet-test.ts",
+    "**/devnet-test-v2.ts",
+    "**/devnet-test-v3.ts",
+    "**/devnet-test-v4.ts",
+    "**/devnet-example.ts",
+    "**/split-config.ts",
+    "**/fund-pda-account.ts",
+    "**/create-test-bridge-instruction.ts",
+    "**/get-pda-ata.ts",
+    "v1-core/**",
+    "solana/**",
+    "node_modules/**",
+    "across-contracts/**",
+    "bridge-adapter/**",
+    "bridge-amount-replacer/**",
+    "swap-and-bridge-adpater/tests/**",
+    "swap-and-bridge-adpater/src/**",
+    "swap-and-bridge-adpater/programs/**",
+    "swap-and-bridge-adpater/test-two-step-interface.ts"
+  ]
 }

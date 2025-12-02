@@ -14,3 +14,20 @@ node_modules/
 .keypairs/
 
 dist
+
+
+# Keys (CRITICAL - never commit)
+*.json
+**/target/deploy/*-keypair.json
+!**/tsconfig.json
+!**/package.json
+!**/*.test.json
+!target/idl/*.json
+
+# Build artifacts
+.program-cache/
+
+bridge-amount-replacer/
+bridge-adapter/
+swap-and-bridge-adpater/*.md
+solana/
