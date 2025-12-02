@@ -7,7 +7,7 @@ use anchor_spl::{
 mod adapters;
 mod utils;
 
-use adapters::unit;
+use adapters::{across, unit};
 
 declare_id!("75uzRTFJRYCtNHGHYiLmcL57no3DDZtvnGbqhztLJnKf");
 
@@ -76,6 +76,7 @@ pub mod router {
         // 7) Dispatch to correct adapter (transfers all tokens from vault)
         match params.adapter_id {
             0 => unit::bridge_via_unit(&ctx, &params, amount, vault_bump)?,
+            1 => across::bridge_via_across(&ctx, &params, amount, vault_bump)?,
             _ => return Err(ErrorCode::UnknownAdapter.into()),
         };
 
@@ -198,4 +199,10 @@ pub enum ErrorCode {
 
     #[msg("Insufficient adapter-specific accounts provided")]
     InsufficientAccounts,
+
+    #[msg("Invalid Across program ID")]
+    InvalidAcrossProgram,
+
+    #[msg("Failed to create approve instruction")]
+    ApproveError,
 }
