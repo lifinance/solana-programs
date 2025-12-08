@@ -14,7 +14,7 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token"
 export function deriveVaultAuthority(
   programId: PublicKey,
   routeSeed: Uint8Array,
-  mint: PublicKey
+  mint: PublicKey,
 ): [PublicKey, number] {
   if (routeSeed.length !== 8) {
     throw new Error(`routeSeed must be 8 bytes, got ${routeSeed.length}`)
@@ -22,7 +22,7 @@ export function deriveVaultAuthority(
 
   return PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), Buffer.from(routeSeed), mint.toBuffer()],
-    programId
+    programId,
   )
 }
 
@@ -39,12 +39,12 @@ export function deriveVaultAuthority(
 export function deriveIntermediateVault(
   vaultAuthority: PublicKey,
   mint: PublicKey,
-  tokenProgram: PublicKey
+  tokenProgram: PublicKey,
 ): PublicKey {
   return getAssociatedTokenAddressSync(
     mint,
     vaultAuthority,
     true, // allowOwnerOffCurve - required for PDA ownership
-    tokenProgram
+    tokenProgram,
   )
 }

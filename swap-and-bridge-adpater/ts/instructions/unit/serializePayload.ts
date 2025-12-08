@@ -79,7 +79,7 @@ const UnitAdapterPayloadSchema = BorshSchema.Struct({
 export function serializePayload(
   params: UnitAdapterPayload,
   mint: PublicKey,
-  isToken2022: boolean = false
+  isToken2022: boolean = false,
 ): SerializedUnitPayload {
   const { unitDepositWallet, isNative } = params
 
@@ -91,7 +91,7 @@ export function serializePayload(
     mint,
     unitDepositWallet,
     false, // allowOwnerOffCurve - false for regular wallet
-    tokenProgram
+    tokenProgram,
   )
 
   // Serialize payload

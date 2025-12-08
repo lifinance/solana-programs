@@ -1,11 +1,18 @@
-import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js"
+import {
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js"
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token"
 import { serializeInstructionData } from "../instructionData.js"
-import { deriveVaultAuthority, deriveIntermediateVault } from "./unit/derivePda.js"
+import {
+  deriveVaultAuthority,
+  deriveIntermediateVault,
+} from "./unit/derivePda.js"
 
 /**
  * Parameters for building a swap_and_bridge instruction
@@ -66,7 +73,9 @@ export interface BuildInstructionParams {
  * })
  * ```
  */
-export function buildInstruction(params: BuildInstructionParams): TransactionInstruction {
+export function buildInstruction(
+  params: BuildInstructionParams
+): TransactionInstruction {
   const {
     programId,
     payer,
@@ -91,7 +100,11 @@ export function buildInstruction(params: BuildInstructionParams): TransactionIns
   const [vaultAuthority] = deriveVaultAuthority(programId, routeSeed, mint)
 
   // 2. Derive intermediate vault ATA
-  const intermediateVault = deriveIntermediateVault(vaultAuthority, mint, tokenProgram)
+  const intermediateVault = deriveIntermediateVault(
+    vaultAuthority,
+    mint,
+    tokenProgram,
+  )
 
   // 3. Build instruction data
   const instructionData = serializeInstructionData({

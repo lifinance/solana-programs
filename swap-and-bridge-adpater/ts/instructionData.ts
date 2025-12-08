@@ -25,7 +25,9 @@ export type InstructionData = {
  * Anchor discriminator for swap_and_bridge instruction
  * Pre-computed: sha256("global:swap_and_bridge")[0..8]
  */
-const SWAP_AND_BRIDGE_DISCRIMINATOR = new Uint8Array([204, 63, 169, 171, 186, 125, 86, 159])
+const SWAP_AND_BRIDGE_DISCRIMINATOR = new Uint8Array([
+  204, 63, 169, 171, 186, 125, 86, 159,
+])
 
 /**
  * Borsh schema for swap_and_bridge params
@@ -45,7 +47,9 @@ const ParamsSchema: BorshSchema = BorshSchema.Struct({
  */
 export function serializeInstructionData(data: InstructionData): Uint8Array {
   if (data.SwapAndBridge.routeSeed.length !== 8) {
-    throw new Error(`routeSeed must be 8 bytes, got ${data.SwapAndBridge.routeSeed.length}`)
+    throw new Error(
+      `routeSeed must be 8 bytes, got ${data.SwapAndBridge.routeSeed.length}`,
+    )
   }
 
   // Serialize params

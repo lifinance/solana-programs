@@ -1,4 +1,8 @@
-import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js"
+import {
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js"
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
@@ -29,7 +33,7 @@ export function buildInstruction(
   routeSeed: Uint8Array,
   minAmount: bigint,
   unitDepositWallet: PublicKey,
-  isToken2022: boolean = false
+  isToken2022: boolean = false,
 ): TransactionInstruction {
   // Validate route seed length
   if (routeSeed.length !== 8) {
@@ -43,14 +47,18 @@ export function buildInstruction(
   const [vaultAuthority] = deriveVaultAuthority(programId, routeSeed, mint)
 
   // 2. Derive intermediate vault ATA
-  const intermediateVault = deriveIntermediateVault(vaultAuthority, mint, tokenProgram)
+  const intermediateVault = deriveIntermediateVault(
+    vaultAuthority,
+    mint,
+    tokenProgram,
+  )
 
   // 3. Derive Unit deposit ATA
   const unitDepositAta = getAssociatedTokenAddressSync(
     mint,
     unitDepositWallet,
     false, // allowOwnerOffCurve - false for regular wallet
-    tokenProgram
+    tokenProgram,
   )
 
   // 4. Build Unit adapter payload
@@ -84,7 +92,11 @@ export function buildInstruction(
       // Account 4: token_program (correct one based on isToken2022)
       { pubkey: tokenProgram, isSigner: false, isWritable: false },
       // Account 5: associated_token_program
-      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      {
+        pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      },
       // Account 6: system_program
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       // Account 7: unit_deposit_wallet
