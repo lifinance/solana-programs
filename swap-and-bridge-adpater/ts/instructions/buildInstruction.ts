@@ -74,7 +74,7 @@ export interface BuildInstructionParams {
  * ```
  */
 export function buildInstruction(
-  params: BuildInstructionParams
+  params: BuildInstructionParams,
 ): TransactionInstruction {
   const {
     programId,

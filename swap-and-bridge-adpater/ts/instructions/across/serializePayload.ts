@@ -10,7 +10,7 @@ import { borshSerialize, BorshSchema } from "borsher"
  * Across Program ID (mainnet)
  */
 export const ACROSS_PROGRAM_ID = new PublicKey(
-  "DLv3NggMiSaef97YCkew5xKUHDh13tVGZ7tydt3ZeAru"
+  "DLv3NggMiSaef97YCkew5xKUHDh13tVGZ7tydt3ZeAru",
 )
 
 /**
@@ -83,7 +83,7 @@ const AcrossAdapterPayloadSchema = BorshSchema.Struct({
  * @returns Across state PDA and bump
  */
 export function deriveAcrossState(
-  seed: bigint = ACROSS_STATE_SEED
+  seed: bigint = ACROSS_STATE_SEED,
 ): [PublicKey, number] {
   const seedBuffer = Buffer.alloc(8)
   seedBuffer.writeBigUInt64LE(seed)

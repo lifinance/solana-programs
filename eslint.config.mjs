@@ -12,5 +12,9 @@ export default tseslint.config(
             ...tseslint.configs.recommended,
             eslintPluginPrettierRecommended
         ],
+        rules: {
+            semi: ['error', 'never'],
+            'prettier/prettier': ['error', { semi: false }],
+        },
     },
 );

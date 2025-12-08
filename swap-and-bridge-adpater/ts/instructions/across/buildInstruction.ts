@@ -128,4 +128,3 @@ export function buildInstruction(
 // Re-export for convenience
 export { ACROSS_PROGRAM_ID } from "./serializePayload.js"
 export type { AcrossAdapterPayload } from "./serializePayload.js"
-
