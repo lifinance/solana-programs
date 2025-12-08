@@ -11,9 +11,6 @@ use crate::{ErrorCode, SwapAndBridge, SwapAndBridgeParams};
 /// Across SVM Spoke Program ID (mainnet)
 pub const ACROSS_PROGRAM_ID: Pubkey = pubkey!("DLv3NggMiSaef97YCkew5xKUHDh13tVGZ7tydt3ZeAru");
 
-/// Across state seed for mainnet (0)
-pub const ACROSS_STATE_SEED: u64 = 0;
-
 /// Base for output amount multiplier (1e18 to match EVM)
 pub const MULTIPLIER_BASE: u128 = 1_000_000_000_000_000_000;
 

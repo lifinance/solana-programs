@@ -9,7 +9,7 @@ mod utils;
 
 use adapters::{across, unit};
 
-declare_id!("75uzRTFJRYCtNHGHYiLmcL57no3DDZtvnGbqhztLJnKf");
+declare_id!("8WSaKaWhWQaTMfCEV8eLP6q4h9AyzQykPKbNZ3jZT5Ze");
 
 // ------------------------------------------------------------
 // PROGRAM
