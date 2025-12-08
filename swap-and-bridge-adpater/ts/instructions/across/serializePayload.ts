@@ -27,8 +27,12 @@ export interface AcrossAdapterPayload {
   recipient: PublicKey
   /** Output token on destination (evmAddressToSolanaPublicKey(toToken.address)) */
   outputToken: PublicKey
-  /** Output amount (32-byte big-endian for EVM compat) */
-  outputAmount: Uint8Array
+  /**
+   * Output amount multiplier (scaled by 1e18)
+   * Formula: outputAmount = (inputAmount * outputAmountMultiplier) / 1e18
+   * Calculated as: (1e18 * suggestedFees.outputAmount) / action.fromAmount
+   */
+  outputAmountMultiplier: bigint
   /** Destination chain ID */
   destinationChainId: bigint
   /** Exclusive relayer (from relayer lookup, or PublicKey.default) */
@@ -64,7 +68,7 @@ export interface SerializedAcrossPayload {
 const AcrossAdapterPayloadSchema = BorshSchema.Struct({
   recipient: BorshSchema.Array(BorshSchema.u8, 32),
   outputToken: BorshSchema.Array(BorshSchema.u8, 32),
-  outputAmount: BorshSchema.Array(BorshSchema.u8, 32),
+  outputAmountMultiplier: BorshSchema.u128,
   destinationChainId: BorshSchema.u64,
   exclusiveRelayer: BorshSchema.Array(BorshSchema.u8, 32),
   quoteTimestamp: BorshSchema.u32,
@@ -86,7 +90,7 @@ export function deriveAcrossState(
 
   return PublicKey.findProgramAddressSync(
     [Buffer.from("state"), seedBuffer],
-    ACROSS_PROGRAM_ID
+    ACROSS_PROGRAM_ID,
   )
 }
 
@@ -100,7 +104,7 @@ export function deriveAcrossState(
 export function deriveAcrossVault(
   acrossState: PublicKey,
   mint: PublicKey,
-  isToken2022: boolean = false
+  isToken2022: boolean = false,
 ): PublicKey {
   const tokenProgram = isToken2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
 
@@ -108,7 +112,7 @@ export function deriveAcrossVault(
     mint,
     acrossState,
     true, // allowOwnerOffCurve - true for PDA-owned ATAs
-    tokenProgram
+    tokenProgram,
   )
 }
 
@@ -131,7 +135,8 @@ export function deriveAcrossVault(
  *   {
  *     recipient: evmAddressToSolanaPublicKey(toAddress),
  *     outputToken: evmAddressToSolanaPublicKey(toToken.address),
- *     outputAmount: bigNumberToBytes32(acrossEstimate.toAmount),
+ *     // Multiplier = (1e18 * outputAmount) / inputAmount
+ *     outputAmountMultiplier: BigInt('1000000000000000000') * suggestedFees.outputAmount / action.fromAmount,
  *     destinationChainId: BigInt(toChainId),
  *     exclusiveRelayer: new PublicKey(relayer.exclusiveRelayer),
  *     quoteTimestamp: Number(acrossEstimate.toolData.quoteTimestamp),
@@ -160,12 +165,12 @@ export function deriveAcrossVault(
 export function serializePayload(
   params: AcrossAdapterPayload,
   mint: PublicKey,
-  isToken2022: boolean = false
+  isToken2022: boolean = false,
 ): SerializedAcrossPayload {
   const {
     recipient,
     outputToken,
-    outputAmount,
+    outputAmountMultiplier,
     destinationChainId,
     exclusiveRelayer,
     quoteTimestamp,
@@ -173,11 +178,6 @@ export function serializePayload(
     exclusivityParameter,
     message,
   } = params
-
-  // Validate output amount is 32 bytes
-  if (outputAmount.length !== 32) {
-    throw new Error(`outputAmount must be 32 bytes, got ${outputAmount.length}`)
-  }
 
   // Derive Across accounts
   const [acrossState] = deriveAcrossState()
@@ -187,7 +187,7 @@ export function serializePayload(
   const payload = borshSerialize(AcrossAdapterPayloadSchema, {
     recipient: recipient.toBytes(),
     outputToken: outputToken.toBytes(),
-    outputAmount: Array.from(outputAmount),
+    outputAmountMultiplier,
     destinationChainId,
     exclusiveRelayer: exclusiveRelayer.toBytes(),
     quoteTimestamp,
@@ -211,4 +211,3 @@ export function serializePayload(
     accounts,
   }
 }
-

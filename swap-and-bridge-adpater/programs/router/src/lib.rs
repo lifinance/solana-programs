@@ -205,4 +205,7 @@ pub enum ErrorCode {
 
     #[msg("Failed to create approve instruction")]
     ApproveError,
+
+    #[msg("Math overflow in output amount calculation")]
+    MathOverflow,
 }

@@ -9,4 +9,3 @@ export {
   ACROSS_STATE_SEED,
 } from "./serializePayload.js"
 export type { SerializedAcrossPayload } from "./serializePayload.js"
-

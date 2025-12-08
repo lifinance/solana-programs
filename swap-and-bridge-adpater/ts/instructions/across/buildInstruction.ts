@@ -1,4 +1,8 @@
-import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js"
+import {
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js"
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -6,7 +10,10 @@ import {
 } from "@solana/spl-token"
 
 import { serializeInstructionData } from "../../instructionData.js"
-import { deriveVaultAuthority, deriveIntermediateVault } from "../unit/derivePda.js"
+import {
+  deriveVaultAuthority,
+  deriveIntermediateVault,
+} from "../unit/derivePda.js"
 import {
   serializePayload,
   type AcrossAdapterPayload,
@@ -35,7 +42,8 @@ import {
  *   {
  *     recipient: evmAddressToSolanaPublicKey(toAddress),
  *     outputToken: evmAddressToSolanaPublicKey(toToken.address),
- *     outputAmount: bigNumberToBytes32(acrossEstimate.toAmount),
+ *     // Multiplier = (1e18 * outputAmount) / inputAmount
+ *     outputAmountMultiplier: BigInt('1000000000000000000') * suggestedFees.outputAmount / action.fromAmount,
  *     destinationChainId: BigInt(toChainId),
  *     exclusiveRelayer: new PublicKey(relayer.exclusiveRelayer),
  *     quoteTimestamp: Number(acrossEstimate.toolData.quoteTimestamp),
@@ -54,7 +62,7 @@ export function buildInstruction(
   routeSeed: Uint8Array,
   minAmount: bigint,
   acrossParams: AcrossAdapterPayload,
-  isToken2022: boolean = false
+  isToken2022: boolean = false,
 ): TransactionInstruction {
   // Validate route seed length
   if (routeSeed.length !== 8) {
@@ -68,14 +76,15 @@ export function buildInstruction(
   const [vaultAuthority] = deriveVaultAuthority(programId, routeSeed, mint)
 
   // 2. Derive intermediate vault ATA
-  const intermediateVault = deriveIntermediateVault(vaultAuthority, mint, tokenProgram)
+  const intermediateVault = deriveIntermediateVault(
+    vaultAuthority,
+    mint,
+    tokenProgram,
+  )
 
   // 3. Serialize Across payload and get accounts
-  const { payload: adapterPayload, accounts: adapterAccounts } = serializePayload(
-    acrossParams,
-    mint,
-    isToken2022
-  )
+  const { payload: adapterPayload, accounts: adapterAccounts } =
+    serializePayload(acrossParams, mint, isToken2022)
 
   // 4. Build instruction data
   const instructionData = serializeInstructionData({
@@ -101,7 +110,11 @@ export function buildInstruction(
       // Account 4: token_program (correct one based on isToken2022)
       { pubkey: tokenProgram, isSigner: false, isWritable: false },
       // Account 5: associated_token_program
-      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      {
+        pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      },
       // Account 6: system_program
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       // Across adapter accounts (positions 7-9)

@@ -14,6 +14,9 @@ pub const ACROSS_PROGRAM_ID: Pubkey = pubkey!("DLv3NggMiSaef97YCkew5xKUHDh13tVGZ
 /// Across state seed for mainnet (0)
 pub const ACROSS_STATE_SEED: u64 = 0;
 
+/// Base for output amount multiplier (1e18 to match EVM)
+pub const MULTIPLIER_BASE: u128 = 1_000_000_000_000_000_000;
+
 /// Payload structure for Across adapter
 /// Maps directly to backend data from generateAcrossInstructionsSolana
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -22,8 +25,9 @@ pub struct AcrossAdapterPayload {
     pub recipient: Pubkey,
     /// Output token on destination (evmAddressToSolanaPublicKey(toToken.address))
     pub output_token: Pubkey,
-    /// Output amount (32-byte big-endian for EVM compat)
-    pub output_amount: [u8; 32],
+    /// Output amount multiplier (scaled by 1e18, accounts for fee ratio and decimal differences)
+    /// Formula: outputAmount = (inputAmount * outputAmountMultiplier) / MULTIPLIER_BASE
+    pub output_amount_multiplier: u128,
     /// Destination chain ID
     pub destination_chain_id: u64,
     /// Exclusive relayer (from relayer lookup, or Pubkey::default())
@@ -61,6 +65,14 @@ fn derive_seed_hash<T: AnchorSerialize>(seed: &T) -> [u8; 32] {
     let mut data = Vec::new();
     AnchorSerialize::serialize(seed, &mut data).unwrap();
     keccak::hash(&data).to_bytes()
+}
+
+/// Convert u128 to [u8; 32] big-endian (for EVM-compatible output amounts)
+/// The u128 value occupies the lower 16 bytes, upper 16 bytes are zero-padded
+fn u128_to_bytes32_be(value: u128) -> [u8; 32] {
+    let mut result = [0u8; 32];
+    result[16..].copy_from_slice(&value.to_be_bytes());
+    result
 }
 
 /// Bridge tokens via Across adapter
@@ -101,7 +113,16 @@ pub fn bridge_via_across<'info>(
         ErrorCode::InvalidAcrossProgram
     );
 
-    // 4) Build DepositSeedData with actual vault balance as input_amount
+    // 4) Compute output amount from multiplier
+    // Formula: outputAmount = (inputAmount * outputAmountMultiplier) / MULTIPLIER_BASE
+    let computed_output: u128 = (amount as u128)
+        .checked_mul(payload.output_amount_multiplier)
+        .ok_or(ErrorCode::MathOverflow)?
+        .checked_div(MULTIPLIER_BASE)
+        .ok_or(ErrorCode::MathOverflow)?;
+    let output_amount = u128_to_bytes32_be(computed_output);
+
+    // 5) Build DepositSeedData with actual vault balance as input_amount
     let depositor = ctx.accounts.vault_authority.key();
     let input_token = ctx.accounts.mint.key();
     let message_vec = payload.message.clone();
@@ -112,7 +133,7 @@ pub fn bridge_via_across<'info>(
         input_token,
         output_token: payload.output_token,
         input_amount: amount,
-        output_amount: payload.output_amount,
+        output_amount,
         destination_chain_id: payload.destination_chain_id,
         exclusive_relayer: payload.exclusive_relayer,
         quote_timestamp: payload.quote_timestamp,
@@ -121,12 +142,12 @@ pub fn bridge_via_across<'info>(
         message: &message_vec,
     };
 
-    // 5) Compute seed hash and derive delegate PDA
+    // 6) Compute seed hash and derive delegate PDA
     let seed_hash = derive_seed_hash(&seed_data);
     let (delegate_pda, _delegate_bump) =
         Pubkey::find_program_address(&[b"delegate", &seed_hash], &ACROSS_PROGRAM_ID);
 
-    // 6) Approve delegate PDA to spend from our vault
+    // 7) Approve delegate PDA to spend from our vault
     let mint_key = ctx.accounts.mint.key();
     let vault_seeds: &[&[u8]] = &[
         b"vault",
@@ -156,7 +177,7 @@ pub fn bridge_via_across<'info>(
         signer_seeds,
     )?;
 
-    // 7) Build Across deposit instruction
+    // 8) Build Across deposit instruction
     // Instruction discriminator for "deposit" (first 8 bytes of sha256("global:deposit"))
     let deposit_discriminator: [u8; 8] = [242, 35, 198, 137, 82, 225, 242, 182];
 
@@ -168,7 +189,7 @@ pub fn bridge_via_across<'info>(
     AnchorSerialize::serialize(&input_token, &mut deposit_data)?;
     AnchorSerialize::serialize(&payload.output_token, &mut deposit_data)?;
     AnchorSerialize::serialize(&amount, &mut deposit_data)?;
-    AnchorSerialize::serialize(&payload.output_amount, &mut deposit_data)?;
+    AnchorSerialize::serialize(&output_amount, &mut deposit_data)?;
     AnchorSerialize::serialize(&payload.destination_chain_id, &mut deposit_data)?;
     AnchorSerialize::serialize(&payload.exclusive_relayer, &mut deposit_data)?;
     AnchorSerialize::serialize(&payload.quote_timestamp, &mut deposit_data)?;
@@ -176,7 +197,7 @@ pub fn bridge_via_across<'info>(
     AnchorSerialize::serialize(&payload.exclusivity_parameter, &mut deposit_data)?;
     AnchorSerialize::serialize(&payload.message, &mut deposit_data)?;
 
-    // 8) Build account metas for Across deposit CPI
+    // 9) Build account metas for Across deposit CPI
     let deposit_accounts = vec![
         AccountMeta::new(ctx.accounts.payer.key(), true),  // signer
         AccountMeta::new(across_state.key(), false),       // state
@@ -195,7 +216,7 @@ pub fn bridge_via_across<'info>(
         data: deposit_data,
     };
 
-    // 9) Invoke Across deposit CPI
+    // 10) Invoke Across deposit CPI
     invoke(
         &deposit_ix,
         &[
