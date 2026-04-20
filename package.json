@@ -28,7 +28,8 @@
     "lint:fix:cached": "eslint . --cache --fix --ext .ts",
     "release": "standard-version -a",
     "release:alpha": "standard-version -a --prerelease alpha --skip.changelog",
-    "release:beta": "standard-version -a --prerelease beta --skip.changelog"
+    "release:beta": "standard-version -a --prerelease beta --skip.changelog",
+    "package": "npm run build && npm pack"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.0",
