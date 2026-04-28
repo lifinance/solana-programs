@@ -1,6 +1,6 @@
 /// Generates conformance fixture JSON for cross-language parity tests.
 /// Run with: cargo run --example gen_vector
-use intent_factory::hash::compute_intent_hash_from_pubkeys;
+use intent_factory::hash::compute_intent_hash;
 use intent_factory::state::IntentHeader;
 use intent_factory::wire::{encode_calls, CallSpecOwned};
 
@@ -55,8 +55,8 @@ fn main() {
     );
 
     let calls_bytes = encode_calls(&[call_0, call_1]);
-    let intent_hash =
-        compute_intent_hash_from_pubkeys(&header_bytes, &calls_bytes, &tail_pubkeys);
+
+    let intent_hash = compute_intent_hash(&header_bytes);
 
     println!("{{");
     println!("  \"header_bytes\": \"{}\",", hex::encode(&header_bytes));

@@ -35,16 +35,18 @@ pub fn handle_execute_intent<'info>(
     calls_bytes: Vec<u8>,
     bump: u8,
 ) -> Result<()> {
+    // validate header canonical encoding
     let header = IntentHeader::decode(&header_bytes)?;
     let re_encoded = header.canonical_encode();
     require!(re_encoded == header_bytes, IntentError::MalformedHeader);
 
+    // assert src_mint is some
     let src_mint = guards::assert_src_mint_some(&header.src_mint)?;
 
     let remaining = ctx.remaining_accounts;
     guards::assert_tail_len(remaining.len())?;
 
-    let intent_hash = compute_intent_hash(&header_bytes, &calls_bytes, remaining)?;
+    let intent_hash = compute_intent_hash(&header_bytes);
     let seeds: &[&[u8]] = &[b"intent", &intent_hash, &[bump]];
     let derived = Pubkey::create_program_address(seeds, &crate::id())
         .map_err(|_| IntentError::BadIntentPda)?;

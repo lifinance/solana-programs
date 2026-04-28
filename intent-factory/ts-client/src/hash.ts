@@ -1,46 +1,16 @@
 import { sha256 } from "@noble/hashes/sha256"
-import { PublicKey } from "@solana/web3.js"
 
 /**
+ * Compute the intent hash from canonical header bytes only.
+ *
+ * The PDA is intent-bound (not route-bound), matching the EVM/Catapultar
+ * outcome model. Route calls and remaining accounts are late-bound
+ * execution inputs validated by runtime outcome checks.
+ *
  * ```
- * acc_buf      = u8(tail.len()) || concat(pubkey for pubkey in tail)
- * calls_digest = sha256(acc_buf || calls_bytes)
- * ```
- */
-export function computeCallsDigest(
-  callsBytes: Uint8Array,
-  tailPubkeys: PublicKey[]
-): Uint8Array {
-  const accBuf = new Uint8Array(1 + tailPubkeys.length * 32)
-  accBuf[0] = tailPubkeys.length
-  let offset = 1
-  for (const pk of tailPubkeys) {
-    accBuf.set(pk.toBytes(), offset)
-    offset += 32
-  }
-
-  const digestInput = new Uint8Array(accBuf.length + callsBytes.length)
-  digestInput.set(accBuf)
-  digestInput.set(callsBytes, accBuf.length)
-
-  return sha256(digestInput)
-}
-
-/**
- * ```
- * intent_hash = sha256(header_bytes || calls_digest)
+ * intent_hash = sha256(header_bytes)
  * ```
  */
-export function computeIntentHash(
-  headerBytes: Uint8Array,
-  callsBytes: Uint8Array,
-  tailPubkeys: PublicKey[]
-): Uint8Array {
-  const callsDigest = computeCallsDigest(callsBytes, tailPubkeys)
-
-  const hashInput = new Uint8Array(headerBytes.length + 32)
-  hashInput.set(headerBytes)
-  hashInput.set(callsDigest, headerBytes.length)
-
-  return sha256(hashInput)
+export function computeIntentHash(headerBytes: Uint8Array): Uint8Array {
+  return sha256(headerBytes)
 }

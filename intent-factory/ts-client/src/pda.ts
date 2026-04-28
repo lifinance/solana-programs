@@ -4,16 +4,17 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token"
 import { computeIntentHash } from "./hash.js"
 
 /**
- * Derive the intent PDA and bump from header bytes, calls bytes, and
- * tail pubkeys. Seeds: `["intent", intent_hash]`.
+ * Derive the intent PDA and bump from canonical header bytes only.
+ * Seeds: `["intent", sha256(header_bytes)]`.
+ *
+ * Route calls and tail accounts are late-bound execution inputs and
+ * do not affect the deposit address.
  */
 export function deriveIntentPda(
   headerBytes: Uint8Array,
-  callsBytes: Uint8Array,
-  tailPubkeys: PublicKey[],
   programId: PublicKey
 ): [PublicKey, number] {
-  const intentHash = computeIntentHash(headerBytes, callsBytes, tailPubkeys)
+  const intentHash = computeIntentHash(headerBytes)
   return PublicKey.findProgramAddressSync(
     [Buffer.from("intent"), intentHash],
     programId

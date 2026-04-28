@@ -768,13 +768,13 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
       source: LOAD_JUPITER_FROM_API ? "api" : "fixture",
       route: { inputMint: USDC_MINT, outputMint: USDT_MINT, amount: "1000000" },
       max_accounts_matrix: MAX_ACCOUNTS_MATRIX,
-      scenarios: validResults,
       summary: {
         total: validResults.length,
         fits: validResults.filter((r) => r.classification === "fits").length,
         pressure: validResults.filter((r) => r.classification === "phase-2 pressure").length,
         blockers: validResults.filter((r) => r.classification === "blocker").length,
       },
+      scenarios: validResults,
       phase2_notes: [] as string[],
     }
 
@@ -786,7 +786,7 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
         )
       } else if (r.classification === "phase-2 pressure") {
         artifact.phase2_notes.push(
-          `${r.name}: ${r.transactionBytes}B is within limit but above 85% ` +
+          `${r.name}: ${r.transactionBytes}B is within limit but above 90% ` +
             `(${Math.round((r.transactionBytes / SOLANA_TX_LIMIT) * 100)}%). ` +
             `Monitor growth.`,
         )

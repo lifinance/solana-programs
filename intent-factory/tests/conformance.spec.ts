@@ -130,11 +130,7 @@ describe("Protocol Conformance", () => {
   describe("Intent hash", () => {
     it("computeIntentHash matches Rust fixture", () => {
       const headerBytes = hexToBytes(fixture.header_bytes)
-      const callsBytes = hexToBytes(fixture.calls_bytes)
-      const tailPubkeys = fixture.tail_pubkeys.map(
-        (hex: string) => new PublicKey(hexToBytes(hex))
-      )
-      const hash = computeIntentHash(headerBytes, callsBytes, tailPubkeys)
+      const hash = computeIntentHash(headerBytes)
       expect(bytesToHex(hash)).toBe(fixture.intent_hash)
     })
 
@@ -142,27 +138,25 @@ describe("Protocol Conformance", () => {
       const header = buildHeaderFromFixture()
       header.amountIn = 999_999n
       const modifiedHeaderBytes = encodeIntentHeader(header)
-      const callsBytes = hexToBytes(fixture.calls_bytes)
-      const tailPubkeys = fixture.tail_pubkeys.map(
-        (hex: string) => new PublicKey(hexToBytes(hex))
-      )
-      const hash = computeIntentHash(
-        modifiedHeaderBytes,
-        callsBytes,
-        tailPubkeys
-      )
+      const hash = computeIntentHash(modifiedHeaderBytes)
       expect(bytesToHex(hash)).not.toBe(fixture.intent_hash)
     })
 
-    it("hash changes when tail pubkeys are swapped", () => {
+    it("hash does not change when route/tail changes", () => {
       const headerBytes = hexToBytes(fixture.header_bytes)
-      const callsBytes = hexToBytes(fixture.calls_bytes)
-      const tailPubkeys = fixture.tail_pubkeys.map(
-        (hex: string) => new PublicKey(hexToBytes(hex))
-      )
-      const swapped = [tailPubkeys[1], tailPubkeys[0], ...tailPubkeys.slice(2)]
-      const hash = computeIntentHash(headerBytes, callsBytes, swapped)
-      expect(bytesToHex(hash)).not.toBe(fixture.intent_hash)
+      const hash1 = computeIntentHash(headerBytes)
+      const hash2 = computeIntentHash(headerBytes)
+      expect(bytesToHex(hash1)).toBe(bytesToHex(hash2))
+    })
+
+    it("changing salt changes the hash", () => {
+      const header = buildHeaderFromFixture()
+      const hash1 = computeIntentHash(encodeIntentHeader(header))
+
+      header.salt = new Uint8Array(32).fill(0xff)
+      const hash2 = computeIntentHash(encodeIntentHeader(header))
+
+      expect(bytesToHex(hash1)).not.toBe(bytesToHex(hash2))
     })
   })
 

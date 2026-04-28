@@ -289,7 +289,7 @@ describe("buildExecuteIntentTx", () => {
     ).toThrow("BuilderError")
   })
 
-  it("headerBytes and callsBytes match what hash expects", () => {
+  it("headerBytes match what hash expects", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const innerProgram = PublicKey.unique()
@@ -305,11 +305,7 @@ describe("buildExecuteIntentTx", () => {
       programId,
     })
 
-    const expectedHash = computeIntentHash(
-      result.headerBytes,
-      result.callsBytes,
-      result.tailPubkeys
-    )
+    const expectedHash = computeIntentHash(result.headerBytes)
 
     const [expectedPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("intent"), expectedHash],
@@ -317,6 +313,70 @@ describe("buildExecuteIntentTx", () => {
     )
 
     expect(result.intentPda.equals(expectedPda)).toBe(true)
+  })
+
+  it("same header produces same PDA across different symbolic routes", () => {
+    const header = makeHeader()
+    const programId = PublicKey.unique()
+
+    const ixA = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+      { pubkey: PublicKey.unique(), isSigner: false, isWritable: false },
+    ])
+
+    const ixB = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+      { pubkey: PublicKey.unique(), isSigner: false, isWritable: true },
+      { pubkey: PublicKey.unique(), isSigner: false, isWritable: false },
+    ])
+
+    const resultA = buildExecuteIntentTx({
+      header,
+      symbolicIxs: [ixA],
+      payer: PublicKey.unique(),
+      programId,
+    })
+
+    const resultB = buildExecuteIntentTx({
+      header,
+      symbolicIxs: [ixB],
+      payer: PublicKey.unique(),
+      programId,
+    })
+
+    expect(resultA.intentPda.equals(resultB.intentPda)).toBe(true)
+    expect(resultA.bump).toBe(resultB.bump)
+  })
+
+  it("different salts produce different PDAs", () => {
+    const programId = PublicKey.unique()
+    const innerProgram = PublicKey.unique()
+
+    const headerA = makeHeader({ salt: new Uint8Array(32).fill(0x01) })
+    const headerB = makeHeader({
+      ...headerA,
+      salt: new Uint8Array(32).fill(0x02),
+    })
+
+    const ix = makeSymbolicIx(innerProgram, [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+    ])
+
+    const resultA = buildExecuteIntentTx({
+      header: headerA,
+      symbolicIxs: [ix],
+      payer: PublicKey.unique(),
+      programId,
+    })
+
+    const resultB = buildExecuteIntentTx({
+      header: headerB,
+      symbolicIxs: [ix],
+      payer: PublicKey.unique(),
+      programId,
+    })
+
+    expect(resultA.intentPda.equals(resultB.intentPda)).toBe(false)
   })
 
   it("tail accounts appear after named-prefix in instruction keys", () => {
@@ -595,7 +655,7 @@ describe("convertToSymbolicIx", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildRefundIntentTx", () => {
-  it("recomputes the same PDA from the same header/calls/tail tuple", () => {
+  it("recomputes the same PDA from headerBytes only", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const innerProgram = PublicKey.unique()
@@ -613,8 +673,6 @@ describe("buildRefundIntentTx", () => {
 
     const refundResult = buildRefundIntentTx({
       headerBytes: execResult.headerBytes,
-      callsBytes: execResult.callsBytes,
-      tailPubkeys: execResult.tailPubkeys,
       payer: PublicKey.unique(),
       programId,
     })
@@ -629,18 +687,10 @@ describe("buildRefundIntentTx", () => {
     const programId = PublicKey.unique()
 
     const headerBytes = encodeIntentHeader(header)
-    const { calls, tailPubkeys } = dedupeAccounts([
-      makeSymbolicIx(PublicKey.unique(), [
-        { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      ]),
-    ])
-    const callsBytes = encodeCalls(calls)
 
     const payer = PublicKey.unique()
     const refundResult = buildRefundIntentTx({
       headerBytes,
-      callsBytes,
-      tailPubkeys,
       payer,
       programId,
     })
@@ -671,51 +721,34 @@ describe("buildRefundIntentTx", () => {
     expect(() =>
       buildRefundIntentTx({
         headerBytes,
-        callsBytes: encodeCalls([]),
-        tailPubkeys: [],
         payer: PublicKey.unique(),
         programId: PublicKey.unique(),
       })
     ).toThrow("BuilderError")
   })
 
-  it("tail accounts are passed through without re-dedupe", () => {
+  it("refund PDA is independent of route used for execution", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
-    const innerProgram = PublicKey.unique()
-    const tailAcc = PublicKey.unique()
 
-    const ix = makeSymbolicIx(innerProgram, [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      { pubkey: tailAcc, isSigner: false, isWritable: false },
-    ])
+    const headerBytes = encodeIntentHeader(header)
 
-    const execResult = buildExecuteIntentTx({
-      header,
-      symbolicIxs: [ix],
+    const refundA = buildRefundIntentTx({
+      headerBytes,
+      callsBytes: new Uint8Array([0x01, 0x02]),
       payer: PublicKey.unique(),
       programId,
     })
 
-    const refundResult = buildRefundIntentTx({
-      headerBytes: execResult.headerBytes,
-      callsBytes: execResult.callsBytes,
-      tailPubkeys: execResult.tailPubkeys,
+    const refundB = buildRefundIntentTx({
+      headerBytes,
+      callsBytes: new Uint8Array([0xFF, 0xFE]),
       payer: PublicKey.unique(),
       programId,
     })
 
-    const refundIx = refundResult.tx.message.compiledInstructions[0]!
-    const staticKeys = refundResult.tx.message.staticAccountKeys
-
-    const namedCount = 10 // intent_pda, source_ata, user, user_source_ata, src_mint, token, ata, system, clock, payer
-    const tailStartIdx = namedCount
-    for (let i = 0; i < execResult.tailPubkeys.length; i++) {
-      const refundKeyIx = refundIx.accountKeyIndexes[tailStartIdx + i]!
-      expect(
-        staticKeys[refundKeyIx]!.equals(execResult.tailPubkeys[i]!)
-      ).toBe(true)
-    }
+    expect(refundA.intentPda.equals(refundB.intentPda)).toBe(true)
+    expect(refundA.bump).toBe(refundB.bump)
   })
 })
 
@@ -743,8 +776,6 @@ describe("Builder conformance with fixtures", () => {
 
     const [manualPda, manualBump] = deriveIntentPda(
       result.headerBytes,
-      result.callsBytes,
-      result.tailPubkeys,
       programId
     )
 
@@ -1063,17 +1094,11 @@ describe("IDL conformance: buildRefundIntentTx", () => {
   it("discriminator matches IDL", () => {
     const header = makeHeader()
     const headerBytes = encodeIntentHeader(header)
-    const { calls, tailPubkeys } = dedupeAccounts([
-      makeSymbolicIx(PublicKey.unique(), [
-        { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      ]),
-    ])
-    const callsBytes = encodeCalls(calls)
+    const callsBytes = encodeCalls([])
 
     const result = buildRefundIntentTx({
       headerBytes,
       callsBytes,
-      tailPubkeys,
       payer: PublicKey.unique(),
       programId: PublicKey.unique(),
     })
@@ -1086,17 +1111,11 @@ describe("IDL conformance: buildRefundIntentTx", () => {
   it("instruction data follows Anchor layout", () => {
     const header = makeHeader()
     const headerBytes = encodeIntentHeader(header)
-    const { calls, tailPubkeys } = dedupeAccounts([
-      makeSymbolicIx(PublicKey.unique(), [
-        { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      ]),
-    ])
-    const callsBytes = encodeCalls(calls)
+    const callsBytes = encodeCalls([])
 
     const result = buildRefundIntentTx({
       headerBytes,
       callsBytes,
-      tailPubkeys,
       payer: PublicKey.unique(),
       programId: PublicKey.unique(),
     })
@@ -1114,18 +1133,10 @@ describe("IDL conformance: buildRefundIntentTx", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const headerBytes = encodeIntentHeader(header)
-    const { calls, tailPubkeys } = dedupeAccounts([
-      makeSymbolicIx(PublicKey.unique(), [
-        { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      ]),
-    ])
-    const callsBytes = encodeCalls(calls)
     const payer = PublicKey.unique()
 
     const result = buildRefundIntentTx({
       headerBytes,
-      callsBytes,
-      tailPubkeys,
       payer,
       programId,
     })
@@ -1155,17 +1166,9 @@ describe("IDL conformance: buildRefundIntentTx", () => {
   it("static address constraints match IDL for token_program, ata_program, system_program, clock", () => {
     const header = makeHeader()
     const headerBytes = encodeIntentHeader(header)
-    const { calls, tailPubkeys } = dedupeAccounts([
-      makeSymbolicIx(PublicKey.unique(), [
-        { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      ]),
-    ])
-    const callsBytes = encodeCalls(calls)
 
     const result = buildRefundIntentTx({
       headerBytes,
-      callsBytes,
-      tailPubkeys,
       payer: PublicKey.unique(),
       programId: PublicKey.unique(),
     })
@@ -1184,36 +1187,20 @@ describe("IDL conformance: buildRefundIntentTx", () => {
     }
   })
 
-  it("tail accounts begin after IDL-declared accounts", () => {
+  it("refund account count equals IDL-declared accounts only (no tail)", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const headerBytes = encodeIntentHeader(header)
-    const tailAcc = PublicKey.unique()
-    const { calls, tailPubkeys } = dedupeAccounts([
-      makeSymbolicIx(PublicKey.unique(), [
-        { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-        { pubkey: tailAcc, isSigner: false, isWritable: false },
-      ]),
-    ])
-    const callsBytes = encodeCalls(calls)
 
     const result = buildRefundIntentTx({
       headerBytes,
-      callsBytes,
-      tailPubkeys,
       payer: PublicKey.unique(),
       programId,
     })
 
     const compiled = result.tx.message.compiledInstructions[0]!
-    const staticKeys = result.tx.message.staticAccountKeys
     const idlAccountCount = idlIx.accounts.length
 
-    expect(compiled.accountKeyIndexes.length).toBe(idlAccountCount + tailPubkeys.length)
-
-    for (let i = 0; i < tailPubkeys.length; i++) {
-      const keyIdx = compiled.accountKeyIndexes[idlAccountCount + i]!
-      expect(staticKeys[keyIdx]!.equals(tailPubkeys[i]!)).toBe(true)
-    }
+    expect(compiled.accountKeyIndexes.length).toBe(idlAccountCount)
   })
 })

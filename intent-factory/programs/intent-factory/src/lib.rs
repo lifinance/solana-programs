@@ -38,9 +38,8 @@ pub mod intent_factory {
     pub fn refund_intent<'info>(
         ctx: Context<'_, '_, '_, 'info, RefundIntent<'info>>,
         header_bytes: Vec<u8>,
-        calls_bytes: Vec<u8>,
         bump: u8,
     ) -> Result<()> {
-        ix::refund_intent::handle_refund_intent(ctx, header_bytes, calls_bytes, bump)
+        ix::refund_intent::handle_refund_intent(ctx, header_bytes, bump)
     }
 }

@@ -16,7 +16,7 @@ export {
 } from "./wire.js"
 export type { CallSpecLike } from "./wire.js"
 
-export { computeCallsDigest, computeIntentHash } from "./hash.js"
+export { computeIntentHash } from "./hash.js"
 
 export {
   deriveIntentPda,

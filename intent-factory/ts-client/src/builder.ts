@@ -160,12 +160,7 @@ export function buildExecuteIntentIx(
   const { calls, tailPubkeys } = dedupeAccounts(symbolicIxs)
   const callsBytes = encodeCalls(calls)
 
-  const [intentPda, bump] = deriveIntentPda(
-    headerBytes,
-    callsBytes,
-    tailPubkeys,
-    programId
-  )
+  const [intentPda, bump] = deriveIntentPda(headerBytes, programId)
 
   const srcMint = header.srcMint
   if (!srcMint) {
@@ -309,8 +304,8 @@ function normalizeAccountMap(
 
 export interface BuildRefundInput {
   headerBytes: Uint8Array
-  callsBytes: Uint8Array
-  tailPubkeys: PublicKey[]
+  callsBytes?: Uint8Array
+  tailPubkeys?: PublicKey[]
   payer: PublicKey
   programId: PublicKey
   lookupTables?: AddressLookupTableAccount[]
@@ -328,19 +323,13 @@ export function buildRefundIntentTx(
 ): BuildRefundResult {
   const {
     headerBytes,
-    callsBytes,
-    tailPubkeys,
+    callsBytes = new Uint8Array(0),
     payer,
     programId,
     lookupTables,
   } = input
 
-  const [intentPda, bump] = deriveIntentPda(
-    headerBytes,
-    callsBytes,
-    tailPubkeys,
-    programId
-  )
+  const [intentPda, bump] = deriveIntentPda(headerBytes, programId)
 
   const header = decodeIntentHeader(headerBytes)
 
@@ -366,10 +355,6 @@ export function buildRefundIntentTx(
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
     { pubkey: payer, isSigner: true, isWritable: true },
   ]
-
-  for (const pk of tailPubkeys) {
-    keys.push({ pubkey: pk, isSigner: false, isWritable: false })
-  }
 
   const refundIx = new TransactionInstruction({
     programId,
