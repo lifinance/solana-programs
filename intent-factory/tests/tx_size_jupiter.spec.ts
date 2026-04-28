@@ -392,7 +392,7 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
 }
 
 function signatureCount(header: IntentHeader): number {
-  return header.executor && !header.executor.equals(PAYER) ? 2 : 1
+  return header.executor.equals(PAYER) ? 1 : 2
 }
 
 function makeCommonALT(): AddressLookupTableAccount {
@@ -507,7 +507,7 @@ function measureJupiterExecute(
     kind: "execute",
     maxAccounts,
     calls: partitioned.innerCpiIxs.length,
-    namedAccounts: 5,
+    namedAccounts: 6,
     tailAccounts: tailPubkeys.length,
     signatures: signatureCount(header),
     headerBytes: headerBytes.length,

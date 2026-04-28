@@ -12,7 +12,7 @@ export interface IntentHeader {
   feeRecipients: Array<{ pubkey: PublicKey; amount: bigint }>
   deadline: bigint
   salt: Uint8Array
-  executor: PublicKey | null
+  executor: PublicKey
 }
 
 export function encodeIntentHeader(header: IntentHeader): Uint8Array {
@@ -23,7 +23,7 @@ export function encodeIntentHeader(header: IntentHeader): Uint8Array {
   })
 
   const feeCount = sorted.length
-  const capacity = 32 + 33 + 8 + 33 + 32 + 8 + 1 + feeCount * 40 + 8 + 32 + 33
+  const capacity = 32 + 33 + 8 + 33 + 32 + 8 + 1 + feeCount * 40 + 8 + 32 + 32
   const buf = new Uint8Array(capacity)
   const view = new DataView(buf.buffer)
   let offset = 0
@@ -58,7 +58,8 @@ export function encodeIntentHeader(header: IntentHeader): Uint8Array {
   buf.set(header.salt, offset)
   offset += 32
 
-  offset = writeOptionPubkey(buf, offset, header.executor)
+  buf.set(header.executor.toBytes(), offset)
+  offset += 32
 
   return buf.slice(0, offset)
 }
@@ -108,8 +109,8 @@ export function decodeIntentHeader(bytes: Uint8Array): IntentHeader {
   if (salt.length !== 32) throw new Error("MalformedHeader: truncated salt")
   offset += 32
 
-  const [executor, executorEnd] = readOptionPubkey(bytes, offset)
-  offset = executorEnd
+  const executor = readPubkey(bytes, offset)
+  offset += 32
 
   if (offset !== bytes.length) {
     throw new Error(

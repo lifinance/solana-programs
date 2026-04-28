@@ -8,7 +8,7 @@ pub enum IntentError {
     #[msg("v1 requires src_mint to be Some (SPL token input only)")]
     InvalidSrcMint,
 
-    #[msg("remaining_accounts exceeds 251 (u8 index overflow with 4 named slots)")]
+    #[msg("remaining_accounts exceeds 251 (u8 index overflow with 4 virtual prefix slots)")]
     TooManyRemainingAccounts,
 
     #[msg("Recomputed PDA does not match intent_pda account")]
@@ -19,6 +19,9 @@ pub enum IntentError {
 
     #[msg("Intent has not expired yet (refund requires now > deadline)")]
     IntentNotExpired,
+
+    #[msg("Executor pubkey does not match header.executor")]
+    BadExecutor,
 
     #[msg("Required executor is not a signer")]
     ExecutorNotSigner,

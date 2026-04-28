@@ -15,7 +15,7 @@ pub struct IntentHeader {
     pub fee_recipients: Vec<(Pubkey, u64)>,
     pub deadline: i64,
     pub salt: [u8; 32],
-    pub executor: Option<Pubkey>,
+    pub executor: Pubkey,
 }
 
 impl IntentHeader {
@@ -28,7 +28,7 @@ impl IntentHeader {
         });
 
         let fee_count = sorted_fees.len();
-        let capacity = 32 + 33 + 8 + 33 + 32 + 8 + 1 + fee_count * 40 + 8 + 32 + 33;
+        let capacity = 32 + 33 + 8 + 33 + 32 + 8 + 1 + fee_count * 40 + 8 + 32 + 32;
         let mut buf = Vec::with_capacity(capacity);
 
         buf.extend_from_slice(self.user.as_ref());
@@ -44,7 +44,7 @@ impl IntentHeader {
         }
         buf.extend_from_slice(&self.deadline.to_le_bytes());
         buf.extend_from_slice(&self.salt);
-        encode_option_pubkey(&mut buf, &self.executor);
+        buf.extend_from_slice(self.executor.as_ref());
 
         buf
     }
@@ -80,7 +80,7 @@ impl IntentHeader {
 
         let deadline = read_i64(bytes, &mut cursor)?;
         let salt = read_bytes32(bytes, &mut cursor)?;
-        let executor = read_option_pubkey(bytes, &mut cursor)?;
+        let executor = read_pubkey(bytes, &mut cursor)?;
 
         if cursor != bytes.len() {
             return Err(IntentError::MalformedHeader.into());
@@ -205,7 +205,7 @@ mod tests {
             ],
             deadline: 1_700_000_000,
             salt: [42u8; 32],
-            executor: None,
+            executor: Pubkey::new_unique(),
         }
     }
 
@@ -299,20 +299,17 @@ mod tests {
         let mut header = test_header();
         header.src_mint = None;
         header.out_mint = None;
-        header.executor = None;
         header.fee_recipients = vec![];
         let bytes = header.canonical_encode();
         let decoded = IntentHeader::decode(&bytes).unwrap();
         assert_eq!(decoded.src_mint, None);
         assert_eq!(decoded.out_mint, None);
-        assert_eq!(decoded.executor, None);
         assert!(decoded.fee_recipients.is_empty());
     }
 
     #[test]
-    fn executor_some_roundtrip() {
-        let mut header = test_header();
-        header.executor = Some(Pubkey::new_unique());
+    fn executor_roundtrip() {
+        let header = test_header();
         let bytes = header.canonical_encode();
         let decoded = IntentHeader::decode(&bytes).unwrap();
         assert_eq!(decoded.executor, header.executor);

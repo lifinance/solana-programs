@@ -28,14 +28,15 @@ pub fn assert_deadline_passed(now: i64, deadline: i64) -> Result<()> {
     Ok(())
 }
 
-pub fn assert_executor_signer(
-    executor: &Option<Pubkey>,
-    accounts: &[AccountInfo],
+pub fn validate_executor(
+    expected_executor: &Pubkey,
+    executor_account: &AccountInfo,
 ) -> Result<()> {
-    if let Some(exec) = executor {
-        let found = accounts.iter().any(|a| a.is_signer && a.key == exec);
-        require!(found, IntentError::ExecutorNotSigner);
-    }
+    require!(
+        executor_account.key() == *expected_executor,
+        IntentError::BadExecutor
+    );
+    require!(executor_account.is_signer, IntentError::ExecutorNotSigner);
     Ok(())
 }
 
@@ -573,5 +574,36 @@ mod tests {
     fn deadline_passed_strict_gt() {
         assert!(assert_deadline_passed(100, 100).is_err());
         assert!(assert_deadline_passed(101, 100).is_ok());
+    }
+
+    #[test]
+    fn validate_executor_matching_signer_passes() {
+        let pk = Pubkey::new_unique();
+        let lamports = &mut 0u64;
+        let mut data = vec![];
+        let owner = system_program::ID;
+        let ai = AccountInfo::new(&pk, true, false, lamports, &mut data, &owner, false, 0);
+        assert!(validate_executor(&pk, &ai).is_ok());
+    }
+
+    #[test]
+    fn validate_executor_matching_non_signer_rejects() {
+        let pk = Pubkey::new_unique();
+        let lamports = &mut 0u64;
+        let mut data = vec![];
+        let owner = system_program::ID;
+        let ai = AccountInfo::new(&pk, false, false, lamports, &mut data, &owner, false, 0);
+        assert!(validate_executor(&pk, &ai).is_err());
+    }
+
+    #[test]
+    fn validate_executor_wrong_pubkey_signer_rejects() {
+        let pk = Pubkey::new_unique();
+        let wrong = Pubkey::new_unique();
+        let lamports = &mut 0u64;
+        let mut data = vec![];
+        let owner = system_program::ID;
+        let ai = AccountInfo::new(&wrong, true, false, lamports, &mut data, &owner, false, 0);
+        assert!(validate_executor(&pk, &ai).is_err());
     }
 }

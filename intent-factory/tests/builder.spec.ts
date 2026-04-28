@@ -48,7 +48,7 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
     feeRecipients: [],
     deadline: 1_700_000_000n,
     salt: new Uint8Array(32).fill(0x07),
-    executor: null,
+    executor: PublicKey.unique(),
     ...overrides,
   }
 }
@@ -232,9 +232,8 @@ describe("buildExecuteIntentTx", () => {
     ).toBe(true)
   })
 
-  it("includes executor as a transaction signer when present", () => {
-    const executor = PublicKey.unique()
-    const header = makeHeader({ executor })
+  it("includes executor as a transaction signer", () => {
+    const header = makeHeader()
     const programId = PublicKey.unique()
     const innerProgram = PublicKey.unique()
 
@@ -250,7 +249,7 @@ describe("buildExecuteIntentTx", () => {
     })
 
     const staticKeys = result.tx.message.staticAccountKeys
-    const executorInKeys = staticKeys.some((k) => k.equals(executor))
+    const executorInKeys = staticKeys.some((k) => k.equals(header.executor))
     expect(executorInKeys).toBe(true)
   })
 
@@ -432,6 +431,8 @@ describe("buildExecuteIntentIx", () => {
     expect(result.executeIx.keys[2]!.pubkey.equals(header.receiver)).toBe(true)
     expect(result.executeIx.keys[3]!.pubkey.equals(result.receiverToken)).toBe(true)
     expect(result.executeIx.keys[4]!.pubkey.equals(SYSVAR_CLOCK_PUBKEY)).toBe(true)
+    expect(result.executeIx.keys[5]!.pubkey.equals(header.executor)).toBe(true)
+    expect(result.executeIx.keys[5]!.isSigner).toBe(true)
   })
 
   it("produces same PDA and metadata as buildExecuteIntentTx", () => {
@@ -464,9 +465,8 @@ describe("buildExecuteIntentIx", () => {
     expect(ixResult.tailPubkeys.length).toBe(txResult.tailPubkeys.length)
   })
 
-  it("includes executor in instruction keys when present", () => {
-    const executor = PublicKey.unique()
-    const header = makeHeader({ executor })
+  it("executor is the named sixth account (index 5) with isSigner=true", () => {
+    const header = makeHeader()
     const programId = PublicKey.unique()
 
     const ix = makeSymbolicIx(PublicKey.unique(), [
@@ -479,9 +479,9 @@ describe("buildExecuteIntentIx", () => {
       programId,
     })
 
-    const executorKey = result.executeIx.keys.find((k) => k.pubkey.equals(executor))
-    expect(executorKey).toBeDefined()
-    expect(executorKey!.isSigner).toBe(true)
+    expect(result.executeIx.keys[5]!.pubkey.equals(header.executor)).toBe(true)
+    expect(result.executeIx.keys[5]!.isSigner).toBe(true)
+    expect(result.executeIx.keys[5]!.isWritable).toBe(false)
   })
 
   it("returns receiverToken derived from outMint", () => {
@@ -826,7 +826,7 @@ function assertDiscriminator(ixData: Buffer, expected: number[]): void {
   expect(actual).toEqual(expected)
 }
 
-function assertAnchorPayloadLayout(
+function assertExecutePayloadLayout(
   ixData: Buffer,
   headerBytes: Uint8Array,
   callsBytes: Uint8Array,
@@ -856,11 +856,38 @@ function assertAnchorPayloadLayout(
   expect(cursor).toBe(ixData.length)
 }
 
-function assertIdlArgs(idlIx: IdlInstruction): void {
+function assertRefundPayloadLayout(
+  ixData: Buffer,
+  headerBytes: Uint8Array,
+  bump: number,
+): void {
+  let cursor = 8 // skip discriminator
+
+  const headerLen = ixData.readUInt32LE(cursor)
+  cursor += 4
+  expect(headerLen).toBe(headerBytes.length)
+  expect(
+    Buffer.from(ixData.subarray(cursor, cursor + headerLen)).equals(Buffer.from(headerBytes))
+  ).toBe(true)
+  cursor += headerLen
+
+  expect(ixData[cursor]).toBe(bump)
+  cursor += 1
+
+  expect(cursor).toBe(ixData.length)
+}
+
+function assertExecuteIdlArgs(idlIx: IdlInstruction): void {
   expect(idlIx.args).toHaveLength(3)
   expect(idlIx.args[0]).toEqual({ name: "header_bytes", type: "bytes" })
   expect(idlIx.args[1]).toEqual({ name: "calls_bytes", type: "bytes" })
   expect(idlIx.args[2]).toEqual({ name: "bump", type: "u8" })
+}
+
+function assertRefundIdlArgs(idlIx: IdlInstruction): void {
+  expect(idlIx.args).toHaveLength(2)
+  expect(idlIx.args[0]).toEqual({ name: "header_bytes", type: "bytes" })
+  expect(idlIx.args[1]).toEqual({ name: "bump", type: "u8" })
 }
 
 function assertAccountMeta(
@@ -890,7 +917,7 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
   const idlIx = getIdlIx("execute_intent")
 
   it("IDL arg shape is [header_bytes: bytes, calls_bytes: bytes, bump: u8]", () => {
-    assertIdlArgs(idlIx)
+    assertExecuteIdlArgs(idlIx)
   })
 
   it("discriminator matches IDL", () => {
@@ -913,7 +940,7 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
     ])
 
     const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
-    assertAnchorPayloadLayout(
+    assertExecutePayloadLayout(
       result.executeIx.data,
       result.headerBytes,
       result.callsBytes,
@@ -922,7 +949,7 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
   })
 
   it("fixed account count matches IDL", () => {
-    expect(idlIx.accounts).toHaveLength(5)
+    expect(idlIx.accounts).toHaveLength(6)
   })
 
   it("fixed account order and flags match IDL", () => {
@@ -936,7 +963,19 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
     const keys = result.executeIx.keys
 
     for (let i = 0; i < idlIx.accounts.length; i++) {
-      assertAccountMeta(keys[i]!, idlIx.accounts[i]!, idlIx.accounts[i]!.name)
+      const idlAcc = idlIx.accounts[i]!
+      const key = keys[i]!
+      expect(key.isWritable).toBe(idlAcc.writable ?? false)
+
+      if (idlAcc.name === "executor") {
+        expect(key.isSigner).toBe(true)
+      } else {
+        expect(key.isSigner).toBe(idlAcc.signer ?? false)
+      }
+
+      if (idlAcc.address) {
+        expect(key.pubkey.equals(new PublicKey(idlAcc.address))).toBe(true)
+      }
     }
   })
 
@@ -974,6 +1013,20 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
       const isInTail = result.tailPubkeys.some((pk) => pk.equals(tk.pubkey))
       expect(isInTail).toBe(true)
     }
+  })
+
+  it("executor does not appear in tailPubkeys unless referenced by a route instruction", () => {
+    const header = makeHeader()
+    const programId = PublicKey.unique()
+
+    const ix = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+    ])
+
+    const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
+
+    const executorInTail = result.tailPubkeys.some((pk) => pk.equals(header.executor))
+    expect(executorInTail).toBe(false)
   })
 })
 
@@ -1030,7 +1083,7 @@ describe("IDL conformance: buildExecuteIntentTx", () => {
     }
   })
 
-  it("total account indexes cover IDL accounts + tail + optional executor", () => {
+  it("total account indexes cover IDL accounts + tail", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const tailAcc = PublicKey.unique()
@@ -1050,30 +1103,6 @@ describe("IDL conformance: buildExecuteIntentTx", () => {
     const expectedCount = idlIx.accounts.length + result.tailPubkeys.length
     expect(compiled.accountKeyIndexes.length).toBe(expectedCount)
   })
-
-  it("executor extends accounts beyond IDL + tail when present", () => {
-    const executor = PublicKey.unique()
-    const header = makeHeader({ executor })
-    const programId = PublicKey.unique()
-    const ix = makeSymbolicIx(PublicKey.unique(), [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-    ])
-
-    const result = buildExecuteIntentTx({
-      header,
-      symbolicIxs: [ix],
-      payer: PublicKey.unique(),
-      programId,
-    })
-
-    const compiled = result.tx.message.compiledInstructions[0]!
-    const expectedCount = idlIx.accounts.length + result.tailPubkeys.length + 1
-    expect(compiled.accountKeyIndexes.length).toBe(expectedCount)
-
-    const staticKeys = result.tx.message.staticAccountKeys
-    const lastIdx = compiled.accountKeyIndexes[compiled.accountKeyIndexes.length - 1]!
-    expect(staticKeys[lastIdx]!.equals(executor)).toBe(true)
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1083,8 +1112,8 @@ describe("IDL conformance: buildExecuteIntentTx", () => {
 describe("IDL conformance: buildRefundIntentTx", () => {
   const idlIx = getIdlIx("refund_intent")
 
-  it("IDL arg shape is [header_bytes: bytes, calls_bytes: bytes, bump: u8]", () => {
-    assertIdlArgs(idlIx)
+  it("IDL arg shape is [header_bytes: bytes, bump: u8]", () => {
+    assertRefundIdlArgs(idlIx)
   })
 
   it("fixed account count matches IDL (10 accounts)", () => {
@@ -1094,11 +1123,9 @@ describe("IDL conformance: buildRefundIntentTx", () => {
   it("discriminator matches IDL", () => {
     const header = makeHeader()
     const headerBytes = encodeIntentHeader(header)
-    const callsBytes = encodeCalls([])
 
     const result = buildRefundIntentTx({
       headerBytes,
-      callsBytes,
       payer: PublicKey.unique(),
       programId: PublicKey.unique(),
     })
@@ -1111,20 +1138,17 @@ describe("IDL conformance: buildRefundIntentTx", () => {
   it("instruction data follows Anchor layout", () => {
     const header = makeHeader()
     const headerBytes = encodeIntentHeader(header)
-    const callsBytes = encodeCalls([])
 
     const result = buildRefundIntentTx({
       headerBytes,
-      callsBytes,
       payer: PublicKey.unique(),
       programId: PublicKey.unique(),
     })
 
     const compiled = result.tx.message.compiledInstructions[0]!
-    assertAnchorPayloadLayout(
+    assertRefundPayloadLayout(
       Buffer.from(compiled.data),
       headerBytes,
-      callsBytes,
       result.bump,
     )
   })

@@ -183,21 +183,11 @@ export function buildExecuteIntentIx(
     { pubkey: header.receiver, isSigner: false, isWritable: false },
     { pubkey: receiverToken, isSigner: false, isWritable: true },
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
+    { pubkey: header.executor, isSigner: true, isWritable: false },
   ]
 
   for (const pk of tailPubkeys) {
     keys.push({ pubkey: pk, isSigner: false, isWritable: false })
-  }
-
-  if (header.executor) {
-    const alreadyInKeys = keys.some((k) => k.pubkey.equals(header.executor!))
-    if (!alreadyInKeys) {
-      keys.push({
-        pubkey: header.executor,
-        isSigner: true,
-        isWritable: false,
-      })
-    }
   }
 
   const executeIx = new TransactionInstruction({
@@ -323,7 +313,6 @@ export function buildRefundIntentTx(
 ): BuildRefundResult {
   const {
     headerBytes,
-    callsBytes = new Uint8Array(0),
     payer,
     programId,
     lookupTables,
@@ -341,7 +330,7 @@ export function buildRefundIntentTx(
   const sourceAta = deriveSourceAta(intentPda, srcMint)
   const userSourceAta = deriveSourceAta(header.user, srcMint)
 
-  const ixData = buildIxData("refund_intent", headerBytes, callsBytes, bump)
+  const ixData = buildRefundIxData("refund_intent", headerBytes, bump)
 
   const keys = [
     { pubkey: intentPda, isSigner: false, isWritable: true },
@@ -397,6 +386,24 @@ function buildIxData(
     headerBytes,
     callsLenBuf,
     callsBytes,
+    Buffer.from([bump]),
+  ])
+}
+
+function buildRefundIxData(
+  ixName: string,
+  headerBytes: Uint8Array,
+  bump: number
+): Buffer {
+  const disc = anchorDiscriminator(ixName)
+
+  const headerLenBuf = Buffer.alloc(4)
+  headerLenBuf.writeUInt32LE(headerBytes.length)
+
+  return Buffer.concat([
+    disc,
+    headerLenBuf,
+    headerBytes,
     Buffer.from([bump]),
   ])
 }

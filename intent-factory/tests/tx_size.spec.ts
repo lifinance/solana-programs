@@ -75,7 +75,7 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
     feeRecipients: [],
     deadline: 1_700_000_000n,
     salt: new Uint8Array(32).fill(0x07),
-    executor: null,
+    executor: PublicKey.unique(),
     ...overrides,
   }
 }
@@ -140,10 +140,10 @@ function measureExecute(
     txBytes = result.tx.serialize().length
     msgBytes = result.tx.message.serialize().length
   } catch {
-    const sigCount = header.executor ? 2 : 1
+    const sigCount = 2
     const staticKeyCount = result.tx.message.staticAccountKeys.length
     const ixDataLen = result.headerBytes.length + result.callsBytes.length + 8 + 1 + 8
-    const accountKeyIndexCount = 5 + result.tailPubkeys.length + (header.executor ? 1 : 0)
+    const accountKeyIndexCount = 6 + result.tailPubkeys.length
     msgBytes = 1 + 32 + 32 + staticKeyCount * 32 + 3 + 1 + accountKeyIndexCount + ixDataLen + 4
     txBytes = 1 + sigCount * 64 + msgBytes
   }
@@ -152,9 +152,9 @@ function measureExecute(
     name,
     kind: "execute",
     calls: symbolicIxs.length,
-    namedAccounts: 5,
+    namedAccounts: 6,
     tailAccounts: result.tailPubkeys.length,
-    signatures: header.executor ? 2 : 1,
+    signatures: 2,
     headerBytes: result.headerBytes.length,
     callsBytes: result.callsBytes.length,
     messageBytes: msgBytes,

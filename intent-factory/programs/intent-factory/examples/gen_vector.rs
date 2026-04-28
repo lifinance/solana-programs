@@ -26,7 +26,7 @@ fn main() {
         fee_recipients: vec![(fee_a, 10_000), (fee_b, 5_000)],
         deadline: 1_700_000_000,
         salt,
-        executor: Some(executor),
+        executor,
     };
 
     let header_bytes = header.canonical_encode();

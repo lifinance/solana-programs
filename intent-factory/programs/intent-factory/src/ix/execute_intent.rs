@@ -27,6 +27,9 @@ pub struct ExecuteIntent<'info> {
     pub receiver_token: AccountInfo<'info>,
 
     pub clock: Sysvar<'info, Clock>,
+
+    /// CHECK: validated against header.executor in handler.
+    pub executor: AccountInfo<'info>,
 }
 
 pub fn handle_execute_intent<'info>(
@@ -58,10 +61,7 @@ pub fn handle_execute_intent<'info>(
     let now = ctx.accounts.clock.unix_timestamp;
     guards::assert_deadline_not_passed(now, header.deadline)?;
 
-    guards::assert_executor_signer(
-        &header.executor,
-        ctx.remaining_accounts,
-    )?;
+    guards::validate_executor(&header.executor, &ctx.accounts.executor)?;
 
     let source_ta = guards::validate_source_ata(
         &ctx.accounts.source_ata,

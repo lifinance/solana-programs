@@ -46,7 +46,7 @@ function buildHeaderFromFixture(): IntentHeader {
     ),
     deadline: BigInt(h.deadline),
     salt: hexToBytes(h.salt),
-    executor: h.executor ? new PublicKey(hexToBytes(h.executor)) : null,
+    executor: new PublicKey(hexToBytes(h.executor)),
   }
 }
 
