@@ -254,10 +254,6 @@ async function executeNormalFlow(
   )
   await simulateAndSend(connection, setupTx, "setup-tx")
 
-//// BREAKPOINT
-log("BREAKPOINT 0")
-process.exit(0)
-
   // TX 2 — Init: store the intent on-chain via init_intent
   log("[init-tx] Building...")
   const initTx = await buildV0Tx(

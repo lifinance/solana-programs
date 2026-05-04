@@ -52,11 +52,6 @@ export async function simulateAndSend(
   }
   log(`[${label}] simulation OK — CU used: ${sim.value.unitsConsumed ?? "n/a"}`)
 
-
-//// BREAKPOINT
-log("BREAKPOINT 1")
-process.exit(1)
-
   const sig = await connection.sendTransaction(tx, { skipPreflight: true })
   log(`[${label}] sent: ${sig}`)
 

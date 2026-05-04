@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-intent_factory = "Co8vRsjgnGS62NkoJS7nWpzFfNLzZsKViuxarnU4h8gc"
+intent_factory = "CNHojkSgGgdQvVGRXY667mpRP6Ne2dZzBUwE4sTWMRZU"
 
 [registry]
 url = "https://api.apr.dev"
@@ -20,6 +20,8 @@ test = "pnpm vitest run --config vitest.config.ts"
 
 [test]
 startup_wait = 10000
+shutdown_wait = 2000
+upgradeable = false
 
 [[test.genesis]]
 address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"

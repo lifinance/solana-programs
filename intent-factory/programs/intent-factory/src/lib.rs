@@ -22,7 +22,7 @@ pub use errors::{IntentError, WireError};
 pub use ix::*;
 pub use state::{IntentHeader, IntentOutcome, IntentState, IntentStatus};
 
-declare_id!("Co8vRsjgnGS62NkoJS7nWpzFfNLzZsKViuxarnU4h8gc");
+declare_id!("CNHojkSgGgdQvVGRXY667mpRP6Ne2dZzBUwE4sTWMRZU");
 
 #[program]
 pub mod intent_factory {
