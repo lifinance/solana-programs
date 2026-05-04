@@ -1,0 +1,32 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+intent_factory = "CNHojkSgGgdQvVGRXY667mpRP6Ne2dZzBUwE4sTWMRZU"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm vitest run --config vitest.config.ts"
+
+[test]
+startup_wait = 10000
+shutdown_wait = 2000
+upgradeable = false
+
+[[test.genesis]]
+address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+program = "spl_token.so"
+
+[[test.genesis]]
+address = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+program = "spl_associated_token_account.so"

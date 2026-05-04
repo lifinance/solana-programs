@@ -11,6 +11,10 @@ node_modules/
 # eslint cache
 .eslintcache
 
+# Environment secrets
+.env
+.env.local
+
 .keypairs/
 
 dist
