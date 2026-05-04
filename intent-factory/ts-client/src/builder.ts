@@ -7,17 +7,17 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js"
 import type { AddressLookupTableAccount } from "@solana/web3.js"
-import {
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-} from "@solana/spl-token"
 import { sha256 } from "@noble/hashes/sha256"
 
 import { encodeIntentHeader, decodeIntentHeader } from "./header.js"
 import type { IntentHeader } from "./header.js"
 import { encodeCalls, NAMED_PREFIX } from "./wire.js"
 import type { CallSpecLike } from "./wire.js"
-import { deriveIntentPda, deriveSourceAta, deriveReceiverToken } from "./pda.js"
+import { deriveIntentPda, deriveSourceAta } from "./pda.js"
+import {
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} from "@solana/spl-token"
 
 // ---------------------------------------------------------------------------
 // Symbolic fixed-slot references
@@ -26,22 +26,16 @@ import { deriveIntentPda, deriveSourceAta, deriveReceiverToken } from "./pda.js"
 const FIXED_SLOT_BYTES: Record<string, Uint8Array> = {
   IntentPda: new Uint8Array(32).fill(0xf0),
   SourceAta: new Uint8Array(32).fill(0xf1),
-  Receiver: new Uint8Array(32).fill(0xf2),
-  ReceiverToken: new Uint8Array(32).fill(0xf3),
 }
 
 export const FixedSlot = {
   IntentPda: new PublicKey(FIXED_SLOT_BYTES.IntentPda!),
   SourceAta: new PublicKey(FIXED_SLOT_BYTES.SourceAta!),
-  Receiver: new PublicKey(FIXED_SLOT_BYTES.Receiver!),
-  ReceiverToken: new PublicKey(FIXED_SLOT_BYTES.ReceiverToken!),
 } as const
 
 const FIXED_VINDEX_MAP = new Map<string, number>([
   [FixedSlot.IntentPda.toBase58(), 0],
   [FixedSlot.SourceAta.toBase58(), 1],
-  [FixedSlot.Receiver.toBase58(), 2],
-  [FixedSlot.ReceiverToken.toBase58(), 3],
 ])
 
 function isFixedSlot(pk: PublicKey): boolean {
@@ -71,6 +65,7 @@ export interface SymbolicInstruction {
 export interface DedupeResult {
   calls: CallSpecLike[]
   tailPubkeys: PublicKey[]
+  tailIsWritable: boolean[]
 }
 
 export function dedupeAccounts(
@@ -78,6 +73,7 @@ export function dedupeAccounts(
 ): DedupeResult {
   const tailMap = new Map<string, number>()
   const tailPubkeys: PublicKey[] = []
+  const tailIsWritable: boolean[] = []
   const calls: CallSpecLike[] = []
 
   for (const ix of symbolicIxs) {
@@ -87,14 +83,14 @@ export function dedupeAccounts(
       )
     }
 
-    const programVix = resolveVindex(ix.programId, tailMap, tailPubkeys)
+    const programVix = resolveVindex(ix.programId, tailMap, tailPubkeys, tailIsWritable, false)
 
     const accounts: number[] = []
     const isWritable: boolean[] = []
     const isSigner: boolean[] = []
 
     for (const meta of ix.keys) {
-      const vix = resolveVindex(meta.pubkey, tailMap, tailPubkeys)
+      const vix = resolveVindex(meta.pubkey, tailMap, tailPubkeys, tailIsWritable, meta.isWritable)
       accounts.push(vix)
       isWritable.push(meta.isWritable)
       isSigner.push(meta.isSigner)
@@ -109,29 +105,89 @@ export function dedupeAccounts(
     })
   }
 
-  return { calls, tailPubkeys }
+  return { calls, tailPubkeys, tailIsWritable }
 }
 
 function resolveVindex(
   pk: PublicKey,
   tailMap: Map<string, number>,
-  tailPubkeys: PublicKey[]
+  tailPubkeys: PublicKey[],
+  tailIsWritable: boolean[],
+  writable: boolean,
 ): number {
   const fixedVix = FIXED_VINDEX_MAP.get(pk.toBase58())
   if (fixedVix !== undefined) return fixedVix
 
   const key = pk.toBase58()
   const existing = tailMap.get(key)
-  if (existing !== undefined) return existing
+  if (existing !== undefined) {
+    const tailIdx = existing - NAMED_PREFIX
+    if (writable) tailIsWritable[tailIdx] = true
+    return existing
+  }
 
   const vix = NAMED_PREFIX + tailPubkeys.length
   tailMap.set(key, vix)
   tailPubkeys.push(pk)
+  tailIsWritable.push(writable)
   return vix
 }
 
 // ---------------------------------------------------------------------------
-// Execute instruction builder
+// Init intent instruction builder
+// ---------------------------------------------------------------------------
+
+export interface BuildInitIntentIxInput {
+  header: IntentHeader
+  payer: PublicKey
+  programId: PublicKey
+}
+
+export interface BuildInitIntentIxResult {
+  initIx: TransactionInstruction
+  intentPda: PublicKey
+  headerBytes: Uint8Array
+  bump: number
+}
+
+export function buildInitIntentIx(
+  input: BuildInitIntentIxInput
+): BuildInitIntentIxResult {
+  const { header, payer, programId } = input
+
+  const headerBytes = encodeIntentHeader(header)
+  const [intentPda, bump] = deriveIntentPda(headerBytes, programId)
+
+  const disc = anchorDiscriminator("init_intent")
+
+  const headerLenBuf = Buffer.alloc(4)
+  headerLenBuf.writeUInt32LE(headerBytes.length)
+
+  const ixData = Buffer.concat([
+    disc,
+    headerLenBuf,
+    headerBytes,
+    Buffer.from([bump]),
+  ])
+
+  const keys = [
+    { pubkey: intentPda, isSigner: false, isWritable: true },
+    { pubkey: header.executor, isSigner: true, isWritable: false },
+    { pubkey: payer, isSigner: true, isWritable: true },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ]
+
+  const initIx = new TransactionInstruction({
+    programId,
+    keys,
+    data: ixData,
+  })
+
+  return { initIx, intentPda, headerBytes, bump }
+}
+
+// ---------------------------------------------------------------------------
+// Execute instruction builder (stateful — no headerBytes in ix data)
 // ---------------------------------------------------------------------------
 
 export interface BuildExecuteIxInput {
@@ -144,7 +200,6 @@ export interface BuildExecuteIxResult {
   executeIx: TransactionInstruction
   intentPda: PublicKey
   sourceAta: PublicKey
-  receiverToken: PublicKey
   headerBytes: Uint8Array
   callsBytes: Uint8Array
   tailPubkeys: PublicKey[]
@@ -157,7 +212,7 @@ export function buildExecuteIntentIx(
   const { header, symbolicIxs, programId } = input
 
   const headerBytes = encodeIntentHeader(header)
-  const { calls, tailPubkeys } = dedupeAccounts(symbolicIxs)
+  const { calls, tailPubkeys, tailIsWritable } = dedupeAccounts(symbolicIxs)
   const callsBytes = encodeCalls(calls)
 
   const [intentPda, bump] = deriveIntentPda(headerBytes, programId)
@@ -168,26 +223,33 @@ export function buildExecuteIntentIx(
   }
   const sourceAta = deriveSourceAta(intentPda, srcMint)
 
-  let receiverToken: PublicKey
-  if (header.outMint) {
-    receiverToken = deriveReceiverToken(header.receiver, header.outMint)
-  } else {
-    receiverToken = SystemProgram.programId
+  const tailSet = new Map<string, number>()
+  for (let i = 0; i < tailPubkeys.length; i++) {
+    tailSet.set(tailPubkeys[i]!.toBase58(), i)
+  }
+  for (const outcome of header.outcomes) {
+    const key = outcome.account.toBase58()
+    const existingIdx = tailSet.get(key)
+    if (existingIdx !== undefined) {
+      tailIsWritable[existingIdx] = true
+    } else {
+      tailSet.set(key, tailPubkeys.length)
+      tailPubkeys.push(outcome.account)
+      tailIsWritable.push(true)
+    }
   }
 
-  const ixData = buildIxData("execute_intent", headerBytes, callsBytes, bump)
+  const ixData = buildExecuteIxData("execute_intent", callsBytes)
 
   const keys = [
     { pubkey: intentPda, isSigner: false, isWritable: true },
     { pubkey: sourceAta, isSigner: false, isWritable: true },
-    { pubkey: header.receiver, isSigner: false, isWritable: false },
-    { pubkey: receiverToken, isSigner: false, isWritable: true },
     { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
     { pubkey: header.executor, isSigner: true, isWritable: false },
   ]
 
-  for (const pk of tailPubkeys) {
-    keys.push({ pubkey: pk, isSigner: false, isWritable: false })
+  for (let i = 0; i < tailPubkeys.length; i++) {
+    keys.push({ pubkey: tailPubkeys[i]!, isSigner: false, isWritable: tailIsWritable[i] ?? false })
   }
 
   const executeIx = new TransactionInstruction({
@@ -200,7 +262,6 @@ export function buildExecuteIntentIx(
     executeIx,
     intentPda,
     sourceAta,
-    receiverToken,
     headerBytes,
     callsBytes,
     tailPubkeys,
@@ -289,13 +350,64 @@ function normalizeAccountMap(
 }
 
 // ---------------------------------------------------------------------------
-// Refund builder
+// Refund instruction builder (stateful — reads from stored state)
 // ---------------------------------------------------------------------------
+
+export interface BuildRefundIxInput {
+  header: IntentHeader
+  payer: PublicKey
+  programId: PublicKey
+}
+
+export interface BuildRefundIxResult {
+  refundIx: TransactionInstruction
+  intentPda: PublicKey
+  sourceAta: PublicKey
+  bump: number
+}
+
+export function buildRefundIntentIx(
+  input: BuildRefundIxInput
+): BuildRefundIxResult {
+  const { header, payer, programId } = input
+
+  const headerBytes = encodeIntentHeader(header)
+  const [intentPda, bump] = deriveIntentPda(headerBytes, programId)
+
+  const srcMint = header.srcMint
+  if (!srcMint) {
+    throw new Error("BuilderError: v1 requires srcMint for refund")
+  }
+
+  const sourceAta = deriveSourceAta(intentPda, srcMint)
+  const userSourceAta = deriveSourceAta(header.user, srcMint)
+
+  const ixData = anchorDiscriminator("refund_intent")
+
+  const keys = [
+    { pubkey: intentPda, isSigner: false, isWritable: true },
+    { pubkey: sourceAta, isSigner: false, isWritable: true },
+    { pubkey: header.user, isSigner: false, isWritable: true },
+    { pubkey: userSourceAta, isSigner: false, isWritable: true },
+    { pubkey: srcMint, isSigner: false, isWritable: false },
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
+    { pubkey: payer, isSigner: true, isWritable: true },
+  ]
+
+  const refundIx = new TransactionInstruction({
+    programId,
+    keys,
+    data: ixData,
+  })
+
+  return { refundIx, intentPda, sourceAta, bump }
+}
 
 export interface BuildRefundInput {
   headerBytes: Uint8Array
-  callsBytes?: Uint8Array
-  tailPubkeys?: PublicKey[]
   payer: PublicKey
   programId: PublicKey
   lookupTables?: AddressLookupTableAccount[]
@@ -318,37 +430,12 @@ export function buildRefundIntentTx(
     lookupTables,
   } = input
 
-  const [intentPda, bump] = deriveIntentPda(headerBytes, programId)
-
   const header = decodeIntentHeader(headerBytes)
 
-  const srcMint = header.srcMint
-  if (!srcMint) {
-    throw new Error("BuilderError: v1 requires srcMint for refund")
-  }
-
-  const sourceAta = deriveSourceAta(intentPda, srcMint)
-  const userSourceAta = deriveSourceAta(header.user, srcMint)
-
-  const ixData = buildRefundIxData("refund_intent", headerBytes, bump)
-
-  const keys = [
-    { pubkey: intentPda, isSigner: false, isWritable: true },
-    { pubkey: sourceAta, isSigner: false, isWritable: true },
-    { pubkey: header.user, isSigner: false, isWritable: true },
-    { pubkey: userSourceAta, isSigner: false, isWritable: true },
-    { pubkey: srcMint, isSigner: false, isWritable: false },
-    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
-    { pubkey: payer, isSigner: true, isWritable: true },
-  ]
-
-  const refundIx = new TransactionInstruction({
+  const { refundIx, intentPda, sourceAta, bump } = buildRefundIntentIx({
+    header,
+    payer,
     programId,
-    keys,
-    data: ixData,
   })
 
   const message = new TransactionMessage({
@@ -366,45 +453,19 @@ export function buildRefundIntentTx(
 // Anchor instruction discriminator + data encoding
 // ---------------------------------------------------------------------------
 
-function buildIxData(
+function buildExecuteIxData(
   ixName: string,
-  headerBytes: Uint8Array,
   callsBytes: Uint8Array,
-  bump: number
 ): Buffer {
   const disc = anchorDiscriminator(ixName)
-
-  const headerLenBuf = Buffer.alloc(4)
-  headerLenBuf.writeUInt32LE(headerBytes.length)
 
   const callsLenBuf = Buffer.alloc(4)
   callsLenBuf.writeUInt32LE(callsBytes.length)
 
   return Buffer.concat([
     disc,
-    headerLenBuf,
-    headerBytes,
     callsLenBuf,
     callsBytes,
-    Buffer.from([bump]),
-  ])
-}
-
-function buildRefundIxData(
-  ixName: string,
-  headerBytes: Uint8Array,
-  bump: number
-): Buffer {
-  const disc = anchorDiscriminator(ixName)
-
-  const headerLenBuf = Buffer.alloc(4)
-  headerLenBuf.writeUInt32LE(headerBytes.length)
-
-  return Buffer.concat([
-    disc,
-    headerLenBuf,
-    headerBytes,
-    Buffer.from([bump]),
   ])
 }
 

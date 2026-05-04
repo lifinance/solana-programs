@@ -1,9 +1,10 @@
-//! LI.FI Intent Factory — stateless intent-binding executor for Solana.
+//! LI.FI Intent Factory — stateful intent-binding executor for Solana.
 //!
-//! A generic CPI executor that binds an intent (header + calls + accounts)
-//! to a PDA via SHA-256 digest. Supports `execute_intent` (deadline-gated,
-//! with min-out enforcement and source-drain invariant) and `refund_intent`
-//! (post-deadline, scoped to canonical source ATA).
+//! A generic CPI executor that binds an intent to a PDA via SHA-256 digest.
+//! The lifecycle is: `init_intent` stores the canonical header once,
+//! `execute_intent` reads stored state and runs route CPIs with outcome
+//! enforcement (min-out, fee deltas, source drain), and `refund_intent`
+//! returns remaining funds after deadline.
 //!
 //! See `solana-intent-factory-poc.md` for the full design.
 
@@ -13,12 +14,13 @@ pub mod errors;
 pub mod guards;
 pub mod hash;
 pub mod ix;
+pub mod pda;
 pub mod state;
 pub mod wire;
 
 pub use errors::{IntentError, WireError};
 pub use ix::*;
-pub use state::IntentHeader;
+pub use state::{IntentHeader, IntentOutcome, IntentState, IntentStatus};
 
 declare_id!("Co8vRsjgnGS62NkoJS7nWpzFfNLzZsKViuxarnU4h8gc");
 
@@ -26,20 +28,20 @@ declare_id!("Co8vRsjgnGS62NkoJS7nWpzFfNLzZsKViuxarnU4h8gc");
 pub mod intent_factory {
     use super::*;
 
+    pub fn init_intent(ctx: Context<InitIntent>, header_bytes: Vec<u8>, bump: u8) -> Result<()> {
+        ix::init_intent::handle_init_intent(ctx, header_bytes, bump)
+    }
+
     pub fn execute_intent<'info>(
         ctx: Context<'_, '_, '_, 'info, ExecuteIntent<'info>>,
-        header_bytes: Vec<u8>,
         calls_bytes: Vec<u8>,
-        bump: u8,
     ) -> Result<()> {
-        ix::execute_intent::handle_execute_intent(ctx, header_bytes, calls_bytes, bump)
+        ix::execute_intent::handle_execute_intent(ctx, calls_bytes)
     }
 
     pub fn refund_intent<'info>(
         ctx: Context<'_, '_, '_, 'info, RefundIntent<'info>>,
-        header_bytes: Vec<u8>,
-        bump: u8,
     ) -> Result<()> {
-        ix::refund_intent::handle_refund_intent(ctx, header_bytes, bump)
+        ix::refund_intent::handle_refund_intent(ctx)
     }
 }

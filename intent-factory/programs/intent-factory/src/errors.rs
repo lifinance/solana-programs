@@ -8,7 +8,7 @@ pub enum IntentError {
     #[msg("v1 requires src_mint to be Some (SPL token input only)")]
     InvalidSrcMint,
 
-    #[msg("remaining_accounts exceeds 251 (u8 index overflow with 4 virtual prefix slots)")]
+    #[msg("remaining_accounts exceeds virtual index limit")]
     TooManyRemainingAccounts,
 
     #[msg("Recomputed PDA does not match intent_pda account")]
@@ -32,20 +32,17 @@ pub enum IntentError {
     #[msg("source_ata data is malformed")]
     SourceAccountMalformed,
 
-    #[msg("receiver pubkey does not match header.receiver")]
-    BadReceiver,
-
-    #[msg("receiver_token pubkey or identity check failed")]
-    BadReceiverToken,
-
     #[msg("source_ata.amount != header.amount_in before call loop")]
     SourceAmountMismatch,
 
     #[msg("source_ata.amount != 0 after call loop")]
     SourceNotDrained,
 
-    #[msg("Receiver delta is below min_amount_out")]
-    InsufficientOutput,
+    #[msg("Outcome account is missing, collides with a named slot, or has wrong mint")]
+    BadOutcomeAccount,
+
+    #[msg("Outcome balance delta is below declared minimum")]
+    InsufficientOutcome,
 
     #[msg("Inner program is on the deny-list")]
     DisallowedProgram,
@@ -65,11 +62,20 @@ pub enum IntentError {
     #[msg("user_source_ata pubkey does not match ATA(user, src_mint)")]
     BadUserSourceAta,
 
-    #[msg("receiver_token must be SystemProgram when out_mint is None")]
-    BadReceiverTokenNativeOutput,
+    #[msg("Intent PDA has already been initialized")]
+    IntentAlreadyInitialized,
 
-    #[msg("CallSpec references virtual index 3 (receiver_token) in native-output mode")]
-    ReceiverTokenRefInNativeOutput,
+    #[msg("Intent has already been executed")]
+    IntentAlreadyExecuted,
+
+    #[msg("Intent has already been refunded")]
+    IntentAlreadyRefunded,
+
+    #[msg("Route CPI requested writable access to intent_pda (virtual index 0)")]
+    InvalidWritableIntentPda,
+
+    #[msg("Lamport overflow during close")]
+    LamportOverflow,
 }
 
 #[error_code]

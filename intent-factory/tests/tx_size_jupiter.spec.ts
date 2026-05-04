@@ -1,18 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import {
   PublicKey,
-  SystemProgram,
-  SYSVAR_CLOCK_PUBKEY,
   AddressLookupTableAccount,
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
   Connection,
 } from "@solana/web3.js"
-import {
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-} from "@solana/spl-token"
+import { getAssociatedTokenAddressSync } from "@solana/spl-token"
 import { writeFileSync, readFileSync } from "fs"
 import { resolve } from "path"
 
@@ -38,7 +33,7 @@ const PROGRAM_ID = PublicKey.unique()
 const PAYER = PublicKey.unique()
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+const USDT_MINT = "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN"
 const SOL_MINT = "So11111111111111111111111111111111111111112"
 
 const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
@@ -301,14 +296,10 @@ function stripCuPrice(ixs: TransactionInstruction[]): TransactionInstruction[] {
 function buildJupiterAccountMap(
   placeholderTaker: string,
   sourceAtaPubkey: string,
-  receiverTokenPubkey: string,
-  receiverPubkey: string,
 ): Map<string, PublicKey> {
   return new Map([
     [placeholderTaker, FixedSlot.IntentPda],
     [sourceAtaPubkey, FixedSlot.SourceAta],
-    [receiverTokenPubkey, FixedSlot.ReceiverToken],
-    [receiverPubkey, FixedSlot.Receiver],
   ])
 }
 
@@ -329,16 +320,12 @@ function jupiterInnerToSymbolicIx(
 function partitionJupiterIxs(
   fixture: JupiterRouteFixture,
   sourceAtaPubkey: string,
-  receiverTokenPubkey: string,
-  receiverPubkey: string,
 ): PartitionedIxs {
   const { instructions, placeholderTaker } = fixture
 
   const accountMap = buildJupiterAccountMap(
     placeholderTaker,
     sourceAtaPubkey,
-    receiverTokenPubkey,
-    receiverPubkey,
   )
 
   const innerCpiRaw: JupiterInstruction[] = [instructions.swapInstruction]
@@ -380,10 +367,13 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
     user: PublicKey.unique(),
     srcMint: new PublicKey(USDC_MINT),
     amountIn: 1_000_000n,
-    outMint: new PublicKey(USDT_MINT),
-    receiver: PublicKey.unique(),
-    minAmountOut: 950_000n,
-    feeRecipients: [],
+    outcomes: [
+      {
+        mint: new PublicKey(USDT_MINT),
+        account: PublicKey.unique(),
+        amount: 950_000n,
+      },
+    ],
     deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
     salt: new Uint8Array(32).fill(0x07),
     executor: PAYER,
@@ -392,26 +382,7 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
 }
 
 function signatureCount(header: IntentHeader): number {
-  return header.executor.equals(PAYER) ? 1 : 2
-}
-
-function makeCommonALT(): AddressLookupTableAccount {
-  return new AddressLookupTableAccount({
-    key: PublicKey.unique(),
-    state: {
-      deactivationSlot: BigInt("18446744073709551615"),
-      lastExtendedSlot: 0,
-      lastExtendedSlotStartIndex: 0,
-      authority: PublicKey.unique(),
-      addresses: [
-        PROGRAM_ID,
-        TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-        SystemProgram.programId,
-        SYSVAR_CLOCK_PUBKEY,
-      ],
-    },
-  })
+  return header.executor && !header.executor.equals(PAYER) ? 2 : 1
 }
 
 const altCache = new Map<string, AddressLookupTableAccount>()
@@ -507,7 +478,7 @@ function measureJupiterExecute(
     kind: "execute",
     maxAccounts,
     calls: partitioned.innerCpiIxs.length,
-    namedAccounts: 6,
+    namedAccounts: 4,
     tailAccounts: tailPubkeys.length,
     signatures: signatureCount(header),
     headerBytes: headerBytes.length,
@@ -543,7 +514,6 @@ const _canRun = !LOAD_JUPITER_FROM_API || (!!_env.jupiterApiKey && !!_env.solana
 describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
   const env = _env
   const active = activeScenarios(env)
-  const commonALT = makeCommonALT()
 
   const fixtureMap: JupiterFixtureMap = {}
   let rpcConnection: Connection | null = null
@@ -592,16 +562,27 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
           return null
         }
 
-        const header = makeHeader()
-        const receiverPubkey = header.receiver.toBase58()
-        const sourceAta = PublicKey.unique().toBase58()
-        const receiverToken = PublicKey.unique().toBase58()
+        const placeholderTakerPk = new PublicKey(fixture.placeholderTaker)
+
+        const sourceAta = getAssociatedTokenAddressSync(
+          new PublicKey(USDC_MINT),
+          placeholderTakerPk,
+          true,
+        ).toBase58()
+
+        const outputAta = getAssociatedTokenAddressSync(
+          new PublicKey(USDT_MINT),
+          placeholderTakerPk,
+          true,
+        )
+
+        const header = makeHeader({
+          outcomes: [{ mint: new PublicKey(USDT_MINT), account: outputAta, amount: 950_000n }],
+        })
 
         const partitioned = partitionJupiterIxs(
           fixture,
           sourceAta,
-          receiverToken,
-          receiverPubkey,
         )
 
         return { header, partitioned }
@@ -650,7 +631,7 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
           maxAcc,
           {
             includePeripherals: false,
-            lookupTables: [...jupALTs, commonALT],
+            lookupTables: jupALTs,
             jitoMode: false,
           },
         )
@@ -671,7 +652,7 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
           maxAcc,
           {
             includePeripherals: true,
-            lookupTables: [...jupALTs, commonALT],
+            lookupTables: jupALTs,
             jitoMode: false,
           },
         )
@@ -722,7 +703,7 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
           maxAcc,
           {
             includePeripherals: false,
-            lookupTables: [...jupALTs, commonALT],
+            lookupTables: jupALTs,
             jitoMode: true,
           },
         )
@@ -748,7 +729,7 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
             maxAcc,
             {
               includePeripherals: true,
-              lookupTables: [...jupALTs, commonALT],
+              lookupTables: jupALTs,
               jitoMode: true,
             },
           )
@@ -774,7 +755,7 @@ describe.skipIf(!_canRun)("Jupiter Tx Size Measurements", () => {
         pressure: validResults.filter((r) => r.classification === "phase-2 pressure").length,
         blockers: validResults.filter((r) => r.classification === "blocker").length,
       },
-      scenarios: validResults,
+      
       phase2_notes: [] as string[],
     }
 

@@ -1,7 +1,7 @@
 export const MAX_CALLS = 8
 export const MAX_ACCOUNTS_PER_CALL = 64
 export const MAX_DATA_LEN = 1024
-export const NAMED_PREFIX = 4
+export const NAMED_PREFIX = 2
 
 export interface CallSpecLike {
   programIx: number

@@ -30,14 +30,3 @@ export function deriveSourceAta(
 ): PublicKey {
   return getAssociatedTokenAddressSync(srcMint, intentPda, true)
 }
-
-/**
- * Derive the canonical receiver token ATA: `ATA(outMint, receiver)`.
- * Only used when `outMint` is not null.
- */
-export function deriveReceiverToken(
-  receiver: PublicKey,
-  outMint: PublicKey
-): PublicKey {
-  return getAssociatedTokenAddressSync(outMint, receiver, true)
-}

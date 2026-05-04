@@ -1,29 +1,29 @@
 import { PublicKey } from "@solana/web3.js"
 
-export const MAX_FEES = 4
+export const MAX_OUTCOMES = 4
+
+export interface IntentOutcome {
+  mint: PublicKey | null
+  account: PublicKey
+  amount: bigint
+}
 
 export interface IntentHeader {
   user: PublicKey
   srcMint: PublicKey | null
   amountIn: bigint
-  outMint: PublicKey | null
-  receiver: PublicKey
-  minAmountOut: bigint
-  feeRecipients: Array<{ pubkey: PublicKey; amount: bigint }>
+  outcomes: IntentOutcome[]
   deadline: bigint
   salt: Uint8Array
   executor: PublicKey
 }
 
 export function encodeIntentHeader(header: IntentHeader): Uint8Array {
-  const sorted = [...header.feeRecipients].sort((a, b) => {
-    const pkCmp = compareBytes(a.pubkey.toBytes(), b.pubkey.toBytes())
-    if (pkCmp !== 0) return pkCmp
-    return a.amount < b.amount ? -1 : a.amount > b.amount ? 1 : 0
-  })
-
-  const feeCount = sorted.length
-  const capacity = 32 + 33 + 8 + 33 + 32 + 8 + 1 + feeCount * 40 + 8 + 32 + 32
+  const outcomeBytes = header.outcomes.reduce(
+    (sum, o) => sum + (o.mint ? 33 : 1) + 32 + 8,
+    0
+  )
+  const capacity = 32 + 33 + 8 + 1 + outcomeBytes + 8 + 32 + 32
   const buf = new Uint8Array(capacity)
   const view = new DataView(buf.buffer)
   let offset = 0
@@ -36,19 +36,12 @@ export function encodeIntentHeader(header: IntentHeader): Uint8Array {
   view.setBigUint64(offset, header.amountIn, true)
   offset += 8
 
-  offset = writeOptionPubkey(buf, offset, header.outMint)
-
-  buf.set(header.receiver.toBytes(), offset)
-  offset += 32
-
-  view.setBigUint64(offset, header.minAmountOut, true)
-  offset += 8
-
-  buf[offset++] = feeCount
-  for (const fee of sorted) {
-    buf.set(fee.pubkey.toBytes(), offset)
+  buf[offset++] = header.outcomes.length
+  for (const outcome of header.outcomes) {
+    offset = writeOptionPubkey(buf, offset, outcome.mint)
+    buf.set(outcome.account.toBytes(), offset)
     offset += 32
-    view.setBigUint64(offset, fee.amount, true)
+    view.setBigUint64(offset, outcome.amount, true)
     offset += 8
   }
 
@@ -77,30 +70,21 @@ export function decodeIntentHeader(bytes: Uint8Array): IntentHeader {
   const amountIn = view.getBigUint64(offset, true)
   offset += 8
 
-  const [outMint, outMintEnd] = readOptionPubkey(bytes, offset)
-  offset = outMintEnd
-
-  const receiver = readPubkey(bytes, offset)
-  offset += 32
-
-  const minAmountOut = view.getBigUint64(offset, true)
-  offset += 8
-
-  const feeCount = bytes[offset++]!
-  if (feeCount > MAX_FEES) {
-    throw new Error(`MalformedHeader: fee_count ${feeCount} > ${MAX_FEES}`)
+  const outcomeCount = bytes[offset++]!
+  if (outcomeCount > MAX_OUTCOMES) {
+    throw new Error(`MalformedHeader: outcome_count ${outcomeCount} > ${MAX_OUTCOMES}`)
   }
 
-  const feeRecipients: Array<{ pubkey: PublicKey; amount: bigint }> = []
-  for (let i = 0; i < feeCount; i++) {
-    const pubkey = readPubkey(bytes, offset)
+  const outcomes: IntentOutcome[] = []
+  for (let i = 0; i < outcomeCount; i++) {
+    const [mint, mintEnd] = readOptionPubkey(bytes, offset)
+    offset = mintEnd
+    const account = readPubkey(bytes, offset)
     offset += 32
     const amount = view.getBigUint64(offset, true)
     offset += 8
-    feeRecipients.push({ pubkey, amount })
+    outcomes.push({ mint, account, amount })
   }
-
-  validateFeeSort(feeRecipients)
 
   const deadline = view.getBigInt64(offset, true)
   offset += 8
@@ -122,28 +106,10 @@ export function decodeIntentHeader(bytes: Uint8Array): IntentHeader {
     user,
     srcMint,
     amountIn,
-    outMint,
-    receiver,
-    minAmountOut,
-    feeRecipients,
+    outcomes,
     deadline,
     salt,
     executor,
-  }
-}
-
-function validateFeeSort(
-  fees: Array<{ pubkey: PublicKey; amount: bigint }>
-): void {
-  for (let i = 0; i < fees.length - 1; i++) {
-    const a = fees[i]!
-    const b = fees[i + 1]!
-    if (a.pubkey.equals(b.pubkey)) {
-      throw new Error("MalformedHeader: duplicate fee pubkey")
-    }
-    if (compareBytes(a.pubkey.toBytes(), b.pubkey.toBytes()) >= 0) {
-      throw new Error("MalformedHeader: fee recipients not strictly sorted")
-    }
   }
 }
 
@@ -183,13 +149,4 @@ function readOptionPubkey(
     return [pk, offset + 32]
   }
   throw new Error(`MalformedHeader: invalid option tag ${tag}`)
-}
-
-function compareBytes(a: Uint8Array, b: Uint8Array): number {
-  const len = Math.min(a.length, b.length)
-  for (let i = 0; i < len; i++) {
-    if (a[i]! < b[i]!) return -1
-    if (a[i]! > b[i]!) return 1
-  }
-  return a.length - b.length
 }

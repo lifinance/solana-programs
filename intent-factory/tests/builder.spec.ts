@@ -15,13 +15,13 @@ import { resolve } from "path"
 import {
   FixedSlot,
   dedupeAccounts,
+  buildInitIntentIx,
   buildExecuteIntentIx,
   buildExecuteIntentTx,
   buildRefundIntentTx,
   convertToSymbolicIx,
   deriveIntentPda,
   deriveSourceAta,
-  deriveReceiverToken,
   encodeIntentHeader,
   encodeCalls,
   computeIntentHash,
@@ -42,10 +42,13 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
     user: PublicKey.unique(),
     srcMint: PublicKey.unique(),
     amountIn: 1_000_000n,
-    outMint: PublicKey.unique(),
-    receiver: PublicKey.unique(),
-    minAmountOut: 950_000n,
-    feeRecipients: [],
+    outcomes: [
+      {
+        mint: PublicKey.unique(),
+        account: PublicKey.unique(),
+        amount: 950_000n,
+      },
+    ],
     deadline: 1_700_000_000n,
     salt: new Uint8Array(32).fill(0x07),
     executor: PublicKey.unique(),
@@ -73,15 +76,13 @@ describe("Symbolic fixed-slot flow", () => {
     const ix = makeSymbolicIx(programId, [
       { pubkey: FixedSlot.IntentPda, isSigner: true, isWritable: true },
       { pubkey: FixedSlot.SourceAta, isSigner: false, isWritable: true },
-      { pubkey: FixedSlot.Receiver, isSigner: false, isWritable: false },
-      { pubkey: FixedSlot.ReceiverToken, isSigner: false, isWritable: true },
     ])
 
     const { calls, tailPubkeys } = dedupeAccounts([ix])
 
     expect(calls).toHaveLength(1)
     const call = calls[0]!
-    expect(call.accounts).toEqual([0, 1, 2, 3])
+    expect(call.accounts).toEqual([0, 1])
     expect(tailPubkeys).toHaveLength(1) // only programId
     expect(tailPubkeys[0]!.equals(programId)).toBe(true)
     expect(call.programIx).toBe(NAMED_PREFIX) // first tail entry
@@ -102,8 +103,6 @@ describe("Symbolic fixed-slot flow", () => {
     for (const pk of tailPubkeys) {
       expect(pk.equals(FixedSlot.IntentPda)).toBe(false)
       expect(pk.equals(FixedSlot.SourceAta)).toBe(false)
-      expect(pk.equals(FixedSlot.Receiver)).toBe(false)
-      expect(pk.equals(FixedSlot.ReceiverToken)).toBe(false)
     }
   })
 
@@ -171,7 +170,7 @@ describe("Symbolic fixed-slot flow", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildExecuteIntentTx", () => {
-  it("produces named-prefix account order [intent_pda, source_ata, receiver, receiver_token]", () => {
+  it("produces named-prefix account order [intent_pda, source_ata]", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const innerProgram = PublicKey.unique()
@@ -192,44 +191,9 @@ describe("buildExecuteIntentTx", () => {
 
     const intentPdaIx = executeIx.accountKeyIndexes[0]!
     const sourceAtaIx = executeIx.accountKeyIndexes[1]!
-    const receiverIx = executeIx.accountKeyIndexes[2]!
-    const receiverTokenIx = executeIx.accountKeyIndexes[3]!
 
     expect(staticKeys[intentPdaIx]!.equals(result.intentPda)).toBe(true)
     expect(staticKeys[sourceAtaIx]!.equals(result.sourceAta)).toBe(true)
-    expect(staticKeys[receiverIx]!.equals(header.receiver)).toBe(true)
-
-    const expectedReceiverToken = deriveReceiverToken(
-      header.receiver,
-      header.outMint!
-    )
-    expect(staticKeys[receiverTokenIx]!.equals(expectedReceiverToken)).toBe(
-      true
-    )
-  })
-
-  it("native-output mode sets receiver_token to SystemProgram", () => {
-    const header = makeHeader({ outMint: null })
-    const programId = PublicKey.unique()
-    const innerProgram = PublicKey.unique()
-
-    const ix = makeSymbolicIx(innerProgram, [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-    ])
-
-    const result = buildExecuteIntentTx({
-      header,
-      symbolicIxs: [ix],
-      payer: PublicKey.unique(),
-      programId,
-    })
-
-    const executeIx = result.tx.message.compiledInstructions[0]!
-    const staticKeys = result.tx.message.staticAccountKeys
-    const receiverTokenIx = executeIx.accountKeyIndexes[3]!
-    expect(
-      staticKeys[receiverTokenIx]!.equals(SystemProgram.programId)
-    ).toBe(true)
   })
 
   it("includes executor as a transaction signer", () => {
@@ -398,7 +362,6 @@ describe("buildExecuteIntentTx", () => {
       programId,
     })
 
-    expect(result.tailPubkeys).toHaveLength(3) // innerProgram + tailAcc1 + tailAcc2
     expect(result.tailPubkeys.some((pk) => pk.equals(innerProgram))).toBe(true)
     expect(result.tailPubkeys.some((pk) => pk.equals(tailAcc1))).toBe(true)
     expect(result.tailPubkeys.some((pk) => pk.equals(tailAcc2))).toBe(true)
@@ -428,11 +391,9 @@ describe("buildExecuteIntentIx", () => {
     expect(result.executeIx.programId.equals(programId)).toBe(true)
     expect(result.executeIx.keys[0]!.pubkey.equals(result.intentPda)).toBe(true)
     expect(result.executeIx.keys[1]!.pubkey.equals(result.sourceAta)).toBe(true)
-    expect(result.executeIx.keys[2]!.pubkey.equals(header.receiver)).toBe(true)
-    expect(result.executeIx.keys[3]!.pubkey.equals(result.receiverToken)).toBe(true)
-    expect(result.executeIx.keys[4]!.pubkey.equals(SYSVAR_CLOCK_PUBKEY)).toBe(true)
-    expect(result.executeIx.keys[5]!.pubkey.equals(header.executor)).toBe(true)
-    expect(result.executeIx.keys[5]!.isSigner).toBe(true)
+    expect(result.executeIx.keys[2]!.pubkey.equals(SYSVAR_CLOCK_PUBKEY)).toBe(true)
+    expect(result.executeIx.keys[3]!.pubkey.equals(header.executor)).toBe(true)
+    expect(result.executeIx.keys[3]!.isSigner).toBe(true)
   })
 
   it("produces same PDA and metadata as buildExecuteIntentTx", () => {
@@ -465,7 +426,7 @@ describe("buildExecuteIntentIx", () => {
     expect(ixResult.tailPubkeys.length).toBe(txResult.tailPubkeys.length)
   })
 
-  it("executor is the named sixth account (index 5) with isSigner=true", () => {
+  it("executor is the named fourth account (index 3) with isSigner=true", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
 
@@ -479,44 +440,9 @@ describe("buildExecuteIntentIx", () => {
       programId,
     })
 
-    expect(result.executeIx.keys[5]!.pubkey.equals(header.executor)).toBe(true)
-    expect(result.executeIx.keys[5]!.isSigner).toBe(true)
-    expect(result.executeIx.keys[5]!.isWritable).toBe(false)
-  })
-
-  it("returns receiverToken derived from outMint", () => {
-    const header = makeHeader()
-    const programId = PublicKey.unique()
-
-    const ix = makeSymbolicIx(PublicKey.unique(), [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-    ])
-
-    const result = buildExecuteIntentIx({
-      header,
-      symbolicIxs: [ix],
-      programId,
-    })
-
-    const expected = deriveReceiverToken(header.receiver, header.outMint!)
-    expect(result.receiverToken.equals(expected)).toBe(true)
-  })
-
-  it("sets receiverToken to SystemProgram for native output", () => {
-    const header = makeHeader({ outMint: null })
-    const programId = PublicKey.unique()
-
-    const ix = makeSymbolicIx(PublicKey.unique(), [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-    ])
-
-    const result = buildExecuteIntentIx({
-      header,
-      symbolicIxs: [ix],
-      programId,
-    })
-
-    expect(result.receiverToken.equals(SystemProgram.programId)).toBe(true)
+    expect(result.executeIx.keys[3]!.pubkey.equals(header.executor)).toBe(true)
+    expect(result.executeIx.keys[3]!.isSigner).toBe(true)
+    expect(result.executeIx.keys[3]!.isWritable).toBe(false)
   })
 
   it("rejects srcMint = null", () => {
@@ -530,6 +456,214 @@ describe("buildExecuteIntentIx", () => {
         programId: PublicKey.unique(),
       })
     ).toThrow("BuilderError")
+  })
+
+  it("outcome accounts are appended to the tail and marked writable", () => {
+    const outcomeAccount = PublicKey.unique()
+    const header = makeHeader({
+      outcomes: [
+        { mint: PublicKey.unique(), account: outcomeAccount, amount: 950_000n },
+      ],
+    })
+    const programId = PublicKey.unique()
+
+    const ix = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+    ])
+
+    const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
+
+    const outcomeKey = result.executeIx.keys.find((k) => k.pubkey.equals(outcomeAccount))
+    expect(outcomeKey).toBeDefined()
+    expect(outcomeKey!.isWritable).toBe(true)
+  })
+
+  it("outcome account already in route tail is not duplicated but forced writable", () => {
+    const outcomeAccount = PublicKey.unique()
+    const header = makeHeader({
+      outcomes: [
+        { mint: PublicKey.unique(), account: outcomeAccount, amount: 950_000n },
+      ],
+    })
+    const programId = PublicKey.unique()
+
+    const ix = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+      { pubkey: outcomeAccount, isSigner: false, isWritable: false },
+    ])
+
+    const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
+
+    const matchingKeys = result.executeIx.keys.filter((k) => k.pubkey.equals(outcomeAccount))
+    expect(matchingKeys).toHaveLength(1)
+    expect(matchingKeys[0]!.isWritable).toBe(true)
+  })
+
+  it("no outcomes produces no extra remaining accounts for outcomes", () => {
+    const header = makeHeader({ outcomes: [] })
+    const programId = PublicKey.unique()
+
+    const ix = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+    ])
+
+    const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
+
+    expect(result.executeIx.keys).toHaveLength(4 + result.tailPubkeys.length)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Init instruction builder tests
+// ---------------------------------------------------------------------------
+
+describe("buildInitIntentIx", () => {
+  it("returns init instruction with correct account ordering", () => {
+    const header = makeHeader()
+    const payer = PublicKey.unique()
+    const programId = PublicKey.unique()
+
+    const result = buildInitIntentIx({ header, payer, programId })
+
+    expect(result.initIx.programId.equals(programId)).toBe(true)
+    expect(result.initIx.keys[0]!.pubkey.equals(result.intentPda)).toBe(true)
+    expect(result.initIx.keys[1]!.pubkey.equals(header.executor)).toBe(true)
+    expect(result.initIx.keys[2]!.pubkey.equals(payer)).toBe(true)
+    expect(result.initIx.keys[3]!.pubkey.equals(SystemProgram.programId)).toBe(true)
+  })
+
+  it("executor is signer, payer is signer+writable", () => {
+    const header = makeHeader()
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId: PublicKey.unique() })
+
+    expect(result.initIx.keys[1]!.isSigner).toBe(true)
+    expect(result.initIx.keys[1]!.isWritable).toBe(false)
+    expect(result.initIx.keys[2]!.isSigner).toBe(true)
+    expect(result.initIx.keys[2]!.isWritable).toBe(true)
+  })
+
+  it("PDA matches deriveIntentPda from headerBytes", () => {
+    const header = makeHeader()
+    const programId = PublicKey.unique()
+
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId })
+    const [manualPda, manualBump] = deriveIntentPda(result.headerBytes, programId)
+
+    expect(result.intentPda.equals(manualPda)).toBe(true)
+    expect(result.bump).toBe(manualBump)
+  })
+
+  it("instruction data layout: disc | u32 header_len | header_bytes | u8 bump", () => {
+    const header = makeHeader()
+    const programId = PublicKey.unique()
+
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId })
+    const data = result.initIx.data
+    let cursor = 8
+
+    const headerLen = data.readUInt32LE(cursor)
+    cursor += 4
+    expect(headerLen).toBe(result.headerBytes.length)
+    expect(
+      Buffer.from(data.subarray(cursor, cursor + headerLen)).equals(Buffer.from(result.headerBytes))
+    ).toBe(true)
+    cursor += headerLen
+
+    expect(data[cursor]).toBe(result.bump)
+    cursor += 1
+
+    expect(cursor).toBe(data.length)
+  })
+
+  it("has exactly 4 account keys", () => {
+    const header = makeHeader()
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId: PublicKey.unique() })
+    expect(result.initIx.keys).toHaveLength(4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Dedupe writable tail metadata tests
+// ---------------------------------------------------------------------------
+
+describe("dedupeAccounts tail writable metadata", () => {
+  it("readonly tail accounts stay readonly", () => {
+    const programId = PublicKey.unique()
+    const account = PublicKey.unique()
+
+    const ix = makeSymbolicIx(programId, [
+      { pubkey: account, isSigner: false, isWritable: false },
+    ])
+
+    const { tailIsWritable } = dedupeAccounts([ix])
+
+    const accountIdx = tailIsWritable.length - 1
+    expect(tailIsWritable[accountIdx]).toBe(false)
+  })
+
+  it("writable tail accounts are marked writable", () => {
+    const programId = PublicKey.unique()
+    const account = PublicKey.unique()
+
+    const ix = makeSymbolicIx(programId, [
+      { pubkey: account, isSigner: false, isWritable: true },
+    ])
+
+    const { tailIsWritable, tailPubkeys } = dedupeAccounts([ix])
+
+    const accountIdx = tailPubkeys.findIndex((pk) => pk.equals(account))
+    expect(tailIsWritable[accountIdx]).toBe(true)
+  })
+
+  it("shared accounts use the union of writable flags", () => {
+    const programId = PublicKey.unique()
+    const shared = PublicKey.unique()
+
+    const ix1 = makeSymbolicIx(programId, [
+      { pubkey: shared, isSigner: false, isWritable: false },
+    ])
+    const ix2 = makeSymbolicIx(programId, [
+      { pubkey: shared, isSigner: false, isWritable: true },
+    ])
+
+    const { tailIsWritable, tailPubkeys } = dedupeAccounts([ix1, ix2])
+
+    const sharedIdx = tailPubkeys.findIndex((pk) => pk.equals(shared))
+    expect(tailIsWritable[sharedIdx]).toBe(true)
+  })
+
+  it("writable tail accounts appear writable in execute instruction keys", () => {
+    const header = makeHeader()
+    const programId = PublicKey.unique()
+    const writableAcc = PublicKey.unique()
+
+    const ix = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+      { pubkey: writableAcc, isSigner: false, isWritable: true },
+    ])
+
+    const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
+
+    const tailKey = result.executeIx.keys.find((k) => k.pubkey.equals(writableAcc))
+    expect(tailKey).toBeDefined()
+    expect(tailKey!.isWritable).toBe(true)
+  })
+
+  it("readonly tail accounts appear readonly in execute instruction keys", () => {
+    const header = makeHeader()
+    const programId = PublicKey.unique()
+    const readonlyAcc = PublicKey.unique()
+
+    const ix = makeSymbolicIx(PublicKey.unique(), [
+      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
+      { pubkey: readonlyAcc, isSigner: false, isWritable: false },
+    ])
+
+    const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
+
+    const tailKey = result.executeIx.keys.find((k) => k.pubkey.equals(readonlyAcc))
+    expect(tailKey).toBeDefined()
+    expect(tailKey!.isWritable).toBe(false)
   })
 })
 
@@ -727,7 +861,7 @@ describe("buildRefundIntentTx", () => {
     ).toThrow("BuilderError")
   })
 
-  it("refund PDA is independent of route used for execution", () => {
+  it("refund PDA is stable across different payers", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
 
@@ -735,14 +869,12 @@ describe("buildRefundIntentTx", () => {
 
     const refundA = buildRefundIntentTx({
       headerBytes,
-      callsBytes: new Uint8Array([0x01, 0x02]),
       payer: PublicKey.unique(),
       programId,
     })
 
     const refundB = buildRefundIntentTx({
       headerBytes,
-      callsBytes: new Uint8Array([0xFF, 0xFE]),
       payer: PublicKey.unique(),
       programId,
     })
@@ -828,19 +960,9 @@ function assertDiscriminator(ixData: Buffer, expected: number[]): void {
 
 function assertExecutePayloadLayout(
   ixData: Buffer,
-  headerBytes: Uint8Array,
   callsBytes: Uint8Array,
-  bump: number,
 ): void {
-  let cursor = 8 // skip discriminator
-
-  const headerLen = ixData.readUInt32LE(cursor)
-  cursor += 4
-  expect(headerLen).toBe(headerBytes.length)
-  expect(
-    Buffer.from(ixData.subarray(cursor, cursor + headerLen)).equals(Buffer.from(headerBytes))
-  ).toBe(true)
-  cursor += headerLen
+  let cursor = 8
 
   const callsLen = ixData.readUInt32LE(cursor)
   cursor += 4
@@ -850,44 +972,22 @@ function assertExecutePayloadLayout(
   ).toBe(true)
   cursor += callsLen
 
-  expect(ixData[cursor]).toBe(bump)
-  cursor += 1
-
   expect(cursor).toBe(ixData.length)
 }
 
 function assertRefundPayloadLayout(
   ixData: Buffer,
-  headerBytes: Uint8Array,
-  bump: number,
 ): void {
-  let cursor = 8 // skip discriminator
-
-  const headerLen = ixData.readUInt32LE(cursor)
-  cursor += 4
-  expect(headerLen).toBe(headerBytes.length)
-  expect(
-    Buffer.from(ixData.subarray(cursor, cursor + headerLen)).equals(Buffer.from(headerBytes))
-  ).toBe(true)
-  cursor += headerLen
-
-  expect(ixData[cursor]).toBe(bump)
-  cursor += 1
-
-  expect(cursor).toBe(ixData.length)
+  expect(ixData.length).toBe(8)
 }
 
 function assertExecuteIdlArgs(idlIx: IdlInstruction): void {
-  expect(idlIx.args).toHaveLength(3)
-  expect(idlIx.args[0]).toEqual({ name: "header_bytes", type: "bytes" })
-  expect(idlIx.args[1]).toEqual({ name: "calls_bytes", type: "bytes" })
-  expect(idlIx.args[2]).toEqual({ name: "bump", type: "u8" })
+  expect(idlIx.args).toHaveLength(1)
+  expect(idlIx.args[0]).toEqual({ name: "calls_bytes", type: "bytes" })
 }
 
 function assertRefundIdlArgs(idlIx: IdlInstruction): void {
-  expect(idlIx.args).toHaveLength(2)
-  expect(idlIx.args[0]).toEqual({ name: "header_bytes", type: "bytes" })
-  expect(idlIx.args[1]).toEqual({ name: "bump", type: "u8" })
+  expect(idlIx.args).toHaveLength(0)
 }
 
 function assertAccountMeta(
@@ -910,13 +1010,65 @@ function assertAccountMeta(
 }
 
 // ---------------------------------------------------------------------------
+// IDL conformance: buildInitIntentIx
+// ---------------------------------------------------------------------------
+
+describe("IDL conformance: buildInitIntentIx", () => {
+  const idlIx = getIdlIx("init_intent")
+
+  it("IDL arg shape is [header_bytes: bytes, bump: u8]", () => {
+    expect(idlIx.args).toHaveLength(2)
+    expect(idlIx.args[0]).toEqual({ name: "header_bytes", type: "bytes" })
+    expect(idlIx.args[1]).toEqual({ name: "bump", type: "u8" })
+  })
+
+  it("discriminator matches IDL", () => {
+    const header = makeHeader()
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId: PublicKey.unique() })
+    assertDiscriminator(result.initIx.data, idlIx.discriminator)
+  })
+
+  it("fixed account count matches IDL (4 accounts)", () => {
+    expect(idlIx.accounts).toHaveLength(4)
+  })
+
+  it("fixed account order and flags match IDL", () => {
+    const header = makeHeader()
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId: PublicKey.unique() })
+    const keys = result.initIx.keys
+
+    for (let i = 0; i < idlIx.accounts.length; i++) {
+      const idlAcc = idlIx.accounts[i]!
+      const key = keys[i]!
+      assertAccountMeta(key, idlAcc, idlAcc.name)
+    }
+  })
+
+  it("system_program address matches IDL constraint", () => {
+    const header = makeHeader()
+    const result = buildInitIntentIx({ header, payer: PublicKey.unique(), programId: PublicKey.unique() })
+
+    const sysIdx = idlIx.accounts.findIndex((a) => a.name === "system_program")
+    const sysIdlAddr = idlIx.accounts[sysIdx]!.address!
+
+    expect(result.initIx.keys[sysIdx]!.pubkey.equals(new PublicKey(sysIdlAddr))).toBe(true)
+  })
+
+  it("executor is marked as signer in IDL", () => {
+    const executorAcc = idlIx.accounts.find((a) => a.name === "executor")
+    expect(executorAcc).toBeDefined()
+    expect(executorAcc!.signer).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // IDL conformance: buildExecuteIntentIx
 // ---------------------------------------------------------------------------
 
 describe("IDL conformance: buildExecuteIntentIx", () => {
   const idlIx = getIdlIx("execute_intent")
 
-  it("IDL arg shape is [header_bytes: bytes, calls_bytes: bytes, bump: u8]", () => {
+  it("IDL arg shape is [calls_bytes: bytes]", () => {
     assertExecuteIdlArgs(idlIx)
   })
 
@@ -931,7 +1083,7 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
     assertDiscriminator(result.executeIx.data, idlIx.discriminator)
   })
 
-  it("instruction data follows Anchor layout: disc | u32 header | headerBytes | u32 calls | callsBytes | u8 bump", () => {
+  it("instruction data follows Anchor layout: disc | u32 calls | callsBytes", () => {
     const header = makeHeader()
     const programId = PublicKey.unique()
     const ix = makeSymbolicIx(PublicKey.unique(), [
@@ -942,14 +1094,12 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
     const result = buildExecuteIntentIx({ header, symbolicIxs: [ix], programId })
     assertExecutePayloadLayout(
       result.executeIx.data,
-      result.headerBytes,
       result.callsBytes,
-      result.bump,
     )
   })
 
   it("fixed account count matches IDL", () => {
-    expect(idlIx.accounts).toHaveLength(6)
+    expect(idlIx.accounts).toHaveLength(4)
   })
 
   it("fixed account order and flags match IDL", () => {
@@ -965,17 +1115,7 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
     for (let i = 0; i < idlIx.accounts.length; i++) {
       const idlAcc = idlIx.accounts[i]!
       const key = keys[i]!
-      expect(key.isWritable).toBe(idlAcc.writable ?? false)
-
-      if (idlAcc.name === "executor") {
-        expect(key.isSigner).toBe(true)
-      } else {
-        expect(key.isSigner).toBe(idlAcc.signer ?? false)
-      }
-
-      if (idlAcc.address) {
-        expect(key.pubkey.equals(new PublicKey(idlAcc.address))).toBe(true)
-      }
+      assertAccountMeta(key, idlAcc, idlAcc.name)
     }
   })
 
@@ -1031,88 +1171,13 @@ describe("IDL conformance: buildExecuteIntentIx", () => {
 })
 
 // ---------------------------------------------------------------------------
-// IDL conformance: buildExecuteIntentTx
-// ---------------------------------------------------------------------------
-
-describe("IDL conformance: buildExecuteIntentTx", () => {
-  const idlIx = getIdlIx("execute_intent")
-
-  it("compiled instruction discriminator matches IDL", () => {
-    const header = makeHeader()
-    const programId = PublicKey.unique()
-    const ix = makeSymbolicIx(PublicKey.unique(), [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-    ])
-
-    const result = buildExecuteIntentTx({
-      header,
-      symbolicIxs: [ix],
-      payer: PublicKey.unique(),
-      programId,
-    })
-
-    const compiled = result.tx.message.compiledInstructions[0]!
-    const disc = Array.from(compiled.data.subarray(0, 8))
-    expect(disc).toEqual(idlIx.discriminator)
-  })
-
-  it("fixed account order resolved through staticAccountKeys matches IDL", () => {
-    const header = makeHeader()
-    const programId = PublicKey.unique()
-    const ix = makeSymbolicIx(PublicKey.unique(), [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-    ])
-
-    const result = buildExecuteIntentTx({
-      header,
-      symbolicIxs: [ix],
-      payer: PublicKey.unique(),
-      programId,
-    })
-
-    const compiled = result.tx.message.compiledInstructions[0]!
-    const staticKeys = result.tx.message.staticAccountKeys
-
-    for (let i = 0; i < idlIx.accounts.length; i++) {
-      const idlAcc = idlIx.accounts[i]!
-      const resolvedKey = staticKeys[compiled.accountKeyIndexes[i]!]!
-
-      if (idlAcc.address) {
-        expect(resolvedKey.equals(new PublicKey(idlAcc.address))).toBe(true)
-      }
-    }
-  })
-
-  it("total account indexes cover IDL accounts + tail", () => {
-    const header = makeHeader()
-    const programId = PublicKey.unique()
-    const tailAcc = PublicKey.unique()
-    const ix = makeSymbolicIx(PublicKey.unique(), [
-      { pubkey: FixedSlot.IntentPda, isSigner: false, isWritable: true },
-      { pubkey: tailAcc, isSigner: false, isWritable: false },
-    ])
-
-    const result = buildExecuteIntentTx({
-      header,
-      symbolicIxs: [ix],
-      payer: PublicKey.unique(),
-      programId,
-    })
-
-    const compiled = result.tx.message.compiledInstructions[0]!
-    const expectedCount = idlIx.accounts.length + result.tailPubkeys.length
-    expect(compiled.accountKeyIndexes.length).toBe(expectedCount)
-  })
-})
-
-// ---------------------------------------------------------------------------
 // IDL conformance: buildRefundIntentTx
 // ---------------------------------------------------------------------------
 
 describe("IDL conformance: buildRefundIntentTx", () => {
   const idlIx = getIdlIx("refund_intent")
 
-  it("IDL arg shape is [header_bytes: bytes, bump: u8]", () => {
+  it("IDL arg shape is [] (no args)", () => {
     assertRefundIdlArgs(idlIx)
   })
 
@@ -1135,7 +1200,7 @@ describe("IDL conformance: buildRefundIntentTx", () => {
     expect(disc).toEqual(idlIx.discriminator)
   })
 
-  it("instruction data follows Anchor layout", () => {
+  it("instruction data follows Anchor layout (disc only)", () => {
     const header = makeHeader()
     const headerBytes = encodeIntentHeader(header)
 
@@ -1146,45 +1211,7 @@ describe("IDL conformance: buildRefundIntentTx", () => {
     })
 
     const compiled = result.tx.message.compiledInstructions[0]!
-    assertRefundPayloadLayout(
-      Buffer.from(compiled.data),
-      headerBytes,
-      result.bump,
-    )
-  })
-
-  it("fixed account order and flags match IDL via compiled instruction", () => {
-    const header = makeHeader()
-    const programId = PublicKey.unique()
-    const headerBytes = encodeIntentHeader(header)
-    const payer = PublicKey.unique()
-
-    const result = buildRefundIntentTx({
-      headerBytes,
-      payer,
-      programId,
-    })
-
-    const compiled = result.tx.message.compiledInstructions[0]!
-    const staticKeys = result.tx.message.staticAccountKeys
-    const { header: msgHeader } = result.tx.message
-
-    for (let i = 0; i < idlIx.accounts.length; i++) {
-      const idlAcc = idlIx.accounts[i]!
-      const keyIdx = compiled.accountKeyIndexes[i]!
-      const resolvedKey = staticKeys[keyIdx]!
-
-      if (idlAcc.address) {
-        expect(resolvedKey.equals(new PublicKey(idlAcc.address))).toBe(true)
-      }
-
-      if (idlAcc.writable) {
-        expect(keyIdx < msgHeader.numRequiredSignatures
-          ? keyIdx < (msgHeader.numRequiredSignatures - msgHeader.numReadonlySignedAccounts)
-          : keyIdx < (staticKeys.length - msgHeader.numReadonlyUnsignedAccounts)
-        ).toBe(true)
-      }
-    }
+    assertRefundPayloadLayout(Buffer.from(compiled.data))
   })
 
   it("static address constraints match IDL for token_program, ata_program, system_program, clock", () => {

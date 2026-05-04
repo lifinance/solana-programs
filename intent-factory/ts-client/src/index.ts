@@ -1,9 +1,9 @@
 export {
   encodeIntentHeader,
   decodeIntentHeader,
-  MAX_FEES,
+  MAX_OUTCOMES,
 } from "./header.js"
-export type { IntentHeader } from "./header.js"
+export type { IntentHeader, IntentOutcome } from "./header.js"
 
 export {
   encodeCalls,
@@ -21,14 +21,15 @@ export { computeIntentHash } from "./hash.js"
 export {
   deriveIntentPda,
   deriveSourceAta,
-  deriveReceiverToken,
 } from "./pda.js"
 
 export {
   FixedSlot,
   dedupeAccounts,
+  buildInitIntentIx,
   buildExecuteIntentIx,
   buildExecuteIntentTx,
+  buildRefundIntentIx,
   buildRefundIntentTx,
   convertToSymbolicIx,
 } from "./builder.js"
@@ -36,10 +37,14 @@ export type {
   SymbolicAccountMeta,
   SymbolicInstruction,
   DedupeResult,
+  BuildInitIntentIxInput,
+  BuildInitIntentIxResult,
   BuildExecuteIxInput,
   BuildExecuteIxResult,
   BuildExecuteInput,
   BuildExecuteResult,
+  BuildRefundIxInput,
+  BuildRefundIxResult,
   BuildRefundInput,
   BuildRefundResult,
   ConvertToSymbolicIxOptions,

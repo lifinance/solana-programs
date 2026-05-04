@@ -69,10 +69,13 @@ function makeHeader(overrides?: Partial<IntentHeader>): IntentHeader {
     user: PublicKey.unique(),
     srcMint: PublicKey.unique(),
     amountIn: 1_000_000n,
-    outMint: PublicKey.unique(),
-    receiver: PublicKey.unique(),
-    minAmountOut: 950_000n,
-    feeRecipients: [],
+    outcomes: [
+      {
+        mint: PublicKey.unique(),
+        account: PublicKey.unique(),
+        amount: 950_000n,
+      },
+    ],
     deadline: 1_700_000_000n,
     salt: new Uint8Array(32).fill(0x07),
     executor: PublicKey.unique(),
@@ -142,8 +145,8 @@ function measureExecute(
   } catch {
     const sigCount = 2
     const staticKeyCount = result.tx.message.staticAccountKeys.length
-    const ixDataLen = result.headerBytes.length + result.callsBytes.length + 8 + 1 + 8
-    const accountKeyIndexCount = 6 + result.tailPubkeys.length
+    const ixDataLen = result.callsBytes.length + 8 + 4
+    const accountKeyIndexCount = 4 + result.tailPubkeys.length
     msgBytes = 1 + 32 + 32 + staticKeyCount * 32 + 3 + 1 + accountKeyIndexCount + ixDataLen + 4
     txBytes = 1 + sigCount * 64 + msgBytes
   }
@@ -152,7 +155,7 @@ function measureExecute(
     name,
     kind: "execute",
     calls: symbolicIxs.length,
-    namedAccounts: 6,
+    namedAccounts: 4,
     tailAccounts: result.tailPubkeys.length,
     signatures: 2,
     headerBytes: result.headerBytes.length,
@@ -173,18 +176,14 @@ function measureExecute(
 function measureRefund(
   name: string,
   header: IntentHeader,
-  symbolicIxs: SymbolicInstruction[],
+  _symbolicIxs: SymbolicInstruction[],
   alt?: AddressLookupTableAccount,
   estimatedCU: number | null = null
 ): ScenarioResult {
   const headerBytes = encodeIntentHeader(header)
-  const { calls, tailPubkeys } = dedupeAccounts(symbolicIxs)
-  const callsBytes = encodeCalls(calls)
 
   const refundResult = buildRefundIntentTx({
     headerBytes,
-    callsBytes,
-    tailPubkeys,
     payer: PAYER,
     programId: PROGRAM_ID,
     lookupTables: alt ? [alt] : undefined,
@@ -196,12 +195,12 @@ function measureRefund(
   const entry: ScenarioResult = {
     name,
     kind: "refund",
-    calls: symbolicIxs.length,
+    calls: 0,
     namedAccounts: 10,
-    tailAccounts: tailPubkeys.length,
+    tailAccounts: 0,
     signatures: 1,
     headerBytes: headerBytes.length,
-    callsBytes: callsBytes.length,
+    callsBytes: 0,
     messageBytes: msgBytes,
     transactionBytes: txBytes,
     usesAlt: !!alt,
@@ -231,7 +230,7 @@ function minimalExecuteIxs(): {
     [
       { pubkey: FixedSlot.SourceAta, isSigner: false, isWritable: true },
       { pubkey: PublicKey.unique(), isSigner: false, isWritable: false },
-      { pubkey: FixedSlot.ReceiverToken, isSigner: false, isWritable: true },
+      { pubkey: PublicKey.unique(), isSigner: false, isWritable: true },
       { pubkey: FixedSlot.IntentPda, isSigner: true, isWritable: false },
     ],
     9
@@ -242,7 +241,7 @@ function minimalExecuteIxs(): {
     [
       { pubkey: FixedSlot.SourceAta, isSigner: false, isWritable: true },
       { pubkey: PublicKey.unique(), isSigner: false, isWritable: false },
-      { pubkey: FixedSlot.ReceiverToken, isSigner: false, isWritable: true },
+      { pubkey: PublicKey.unique(), isSigner: false, isWritable: true },
       { pubkey: FixedSlot.IntentPda, isSigner: true, isWritable: false },
     ],
     9
@@ -255,85 +254,53 @@ function typicalExecuteIxs(): {
   header: IntentHeader
   ixs: SymbolicInstruction[]
 } {
-  const feeRecipient1 = PublicKey.unique()
-  const feeRecipient2 = PublicKey.unique()
-  const sorted = [feeRecipient1, feeRecipient2].sort((a, b) => {
-    const aBytes = a.toBytes()
-    const bBytes = b.toBytes()
-    for (let i = 0; i < 32; i++) {
-      if (aBytes[i]! < bBytes[i]!) return -1
-      if (aBytes[i]! > bBytes[i]!) return 1
-    }
-    return 0
-  })
+  const outcomeAccount1 = PublicKey.unique()
+  const outcomeAccount2 = PublicKey.unique()
 
   const header = makeHeader({
-    feeRecipients: [
-      { pubkey: sorted[0]!, amount: 5000n },
-      { pubkey: sorted[1]!, amount: 3000n },
+    outcomes: [
+      { mint: PublicKey.unique(), account: outcomeAccount1, amount: 950_000n },
+      { mint: PublicKey.unique(), account: outcomeAccount2, amount: 5_000n },
     ],
     executor: PublicKey.unique(),
   })
 
   const tokenProgram = TOKEN_PROGRAM_ID
-  const feeAta1 = PublicKey.unique()
-  const feeAta2 = PublicKey.unique()
   const srcMintAcc = PublicKey.unique()
 
-  const transferToFee1 = makeSymIx(
+  const transferToOutcome1 = makeSymIx(
     tokenProgram,
     [
       { pubkey: FixedSlot.SourceAta, isSigner: false, isWritable: true },
       { pubkey: srcMintAcc, isSigner: false, isWritable: false },
-      { pubkey: feeAta1, isSigner: false, isWritable: true },
+      { pubkey: outcomeAccount1, isSigner: false, isWritable: true },
       { pubkey: FixedSlot.IntentPda, isSigner: true, isWritable: false },
     ],
     9
   )
 
-  const transferToFee2 = makeSymIx(
+  const transferToOutcome2 = makeSymIx(
     tokenProgram,
     [
       { pubkey: FixedSlot.SourceAta, isSigner: false, isWritable: true },
       { pubkey: srcMintAcc, isSigner: false, isWritable: false },
-      { pubkey: feeAta2, isSigner: false, isWritable: true },
+      { pubkey: outcomeAccount2, isSigner: false, isWritable: true },
       { pubkey: FixedSlot.IntentPda, isSigner: true, isWritable: false },
     ],
     9
   )
 
-  const transferToReceiver = makeSymIx(
-    tokenProgram,
-    [
-      { pubkey: FixedSlot.SourceAta, isSigner: false, isWritable: true },
-      { pubkey: srcMintAcc, isSigner: false, isWritable: false },
-      { pubkey: FixedSlot.ReceiverToken, isSigner: false, isWritable: true },
-      { pubkey: FixedSlot.IntentPda, isSigner: true, isWritable: false },
-    ],
-    9
-  )
-
-  return { header, ixs: [transferToFee1, transferToFee2, transferToReceiver] }
+  return { header, ixs: [transferToOutcome1, transferToOutcome2] }
 }
 
 function worstCaseExecuteIxs(): {
   header: IntentHeader
   ixs: SymbolicInstruction[]
 } {
-  const fees = Array.from({ length: 4 }, () => PublicKey.unique())
-  fees.sort((a, b) => {
-    const aBytes = a.toBytes()
-    const bBytes = b.toBytes()
-    for (let i = 0; i < 32; i++) {
-      if (aBytes[i]! < bBytes[i]!) return -1
-      if (aBytes[i]! > bBytes[i]!) return 1
-    }
-    return 0
-  })
-
   const header = makeHeader({
-    feeRecipients: fees.map((pk, i) => ({
-      pubkey: pk,
+    outcomes: Array.from({ length: 4 }, (_, i) => ({
+      mint: PublicKey.unique(),
+      account: PublicKey.unique(),
       amount: BigInt((i + 1) * 1000),
     })),
     executor: PublicKey.unique(),
@@ -400,13 +367,11 @@ describe("Tx Size Measurements", () => {
     it("measures without ALT", () => {
       const { header, ixs } = worstCaseExecuteIxs()
       const r = measureExecute("worst_case_execute_no_alt", header, ixs, undefined, 200_000)
-      // may or may not fit — just measure
     })
 
     it("measures with common ALT", () => {
       const { header, ixs } = worstCaseExecuteIxs()
       const r = measureExecute("worst_case_execute_with_alt", header, ixs, alt, 200_000)
-      // flag but don't fail — plan says defer to phase 2 if blocker
     })
   })
 

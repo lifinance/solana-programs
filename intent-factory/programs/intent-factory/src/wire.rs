@@ -5,7 +5,7 @@ use crate::errors::WireError;
 pub const MAX_CALLS: usize = 8;
 pub const MAX_ACCOUNTS_PER_CALL: usize = 64;
 pub const MAX_DATA_LEN: usize = 1024;
-pub const NAMED_PREFIX: usize = 4;
+pub const NAMED_PREFIX: usize = 2;
 
 /// Zero-copy reference into a single call's wire bytes.
 pub struct CallSpecRef<'a> {
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn encode_decode_roundtrip_single_call() {
         let call = CallSpecOwned::new(
-            4,
+            2,
             vec![0, 1, 2],
             vec![true, false, true],
             vec![false, false, false],
@@ -243,7 +243,7 @@ mod tests {
         let remaining_len = 10;
         let mut iter = CallsIter::new(&encoded, remaining_len).unwrap();
         let decoded = iter.next_call().unwrap().unwrap();
-        assert_eq!(decoded.program_ix, 4);
+        assert_eq!(decoded.program_ix, 2);
         assert_eq!(decoded.accounts, &[0, 1, 2]);
         assert_eq!(decoded.data, &[1, 2, 3, 4]);
         let (w, s) = decoded.flag_for(0);
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn rejects_program_in_named_prefix() {
         let call = CallSpecOwned {
-            program_ix: 3, // < NAMED_PREFIX
+            program_ix: 1, // < NAMED_PREFIX
             accounts: vec![0],
             flags_bitmap: vec![0b01],
             data: vec![],
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn rejects_account_index_oob() {
         let call = CallSpecOwned::new(
-            4,
+            2,
             vec![0, 255], // 255 is out of bounds for remaining_len=1
             vec![false, false],
             vec![false, false],
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn rejects_non_canonical_bitmap() {
         let call = CallSpecOwned {
-            program_ix: 4,
+            program_ix: 2,
             accounts: vec![0],
             flags_bitmap: vec![0b11111101], // trailing bits set
             data: vec![],
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn rejects_trailing_wire_bytes() {
-        let call = CallSpecOwned::new(4, vec![0], vec![true], vec![false], vec![]);
+        let call = CallSpecOwned::new(2, vec![0], vec![true], vec![false], vec![]);
         let mut encoded = encode_calls(&[call]);
         encoded.push(0xFF);
         let mut iter = CallsIter::new(&encoded, 10).unwrap();
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn rejects_data_too_large() {
         let call = CallSpecOwned::new(
-            4,
+            2,
             vec![0],
             vec![false],
             vec![false],

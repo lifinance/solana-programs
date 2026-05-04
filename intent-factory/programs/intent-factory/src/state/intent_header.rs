@@ -2,46 +2,45 @@ use anchor_lang::prelude::*;
 
 use crate::errors::IntentError;
 
-pub const MAX_FEES: usize = 4;
+pub const MAX_OUTCOMES: usize = 4;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntentOutcome {
+    pub mint: Option<Pubkey>,
+    pub account: Pubkey,
+    pub amount: u64,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntentHeader {
     pub user: Pubkey,
     pub src_mint: Option<Pubkey>,
     pub amount_in: u64,
-    pub out_mint: Option<Pubkey>,
-    pub receiver: Pubkey,
-    pub min_amount_out: u64,
-    pub fee_recipients: Vec<(Pubkey, u64)>,
+    pub outcomes: Vec<IntentOutcome>,
     pub deadline: i64,
     pub salt: [u8; 32],
     pub executor: Pubkey,
 }
 
 impl IntentHeader {
-    /// Canonical byte encoding used as hash input. Fee recipients are sorted
-    /// lexicographically by (pubkey bytes, amount LE bytes) before encoding.
+    /// Canonical byte encoding used as hash input. Outcomes are encoded in
+    /// declared order, matching Catapultar's order-sensitive `Outcome[]`.
     pub fn canonical_encode(&self) -> Vec<u8> {
-        let mut sorted_fees = self.fee_recipients.clone();
-        sorted_fees.sort_by(|a, b| {
-            a.0.as_ref().cmp(b.0.as_ref()).then_with(|| a.1.cmp(&b.1))
-        });
-
-        let fee_count = sorted_fees.len();
-        let capacity = 32 + 33 + 8 + 33 + 32 + 8 + 1 + fee_count * 40 + 8 + 32 + 32;
+        let outcome_bytes: usize = self.outcomes.iter().map(|o| outcome_row_len(o)).sum();
+        let capacity = 32 + 33 + 8 + 1 + outcome_bytes + 8 + 32 + 32;
         let mut buf = Vec::with_capacity(capacity);
 
         buf.extend_from_slice(self.user.as_ref());
         encode_option_pubkey(&mut buf, &self.src_mint);
         buf.extend_from_slice(&self.amount_in.to_le_bytes());
-        encode_option_pubkey(&mut buf, &self.out_mint);
-        buf.extend_from_slice(self.receiver.as_ref());
-        buf.extend_from_slice(&self.min_amount_out.to_le_bytes());
-        buf.push(fee_count as u8);
-        for (pk, amt) in &sorted_fees {
-            buf.extend_from_slice(pk.as_ref());
-            buf.extend_from_slice(&amt.to_le_bytes());
+
+        buf.push(self.outcomes.len() as u8);
+        for outcome in &self.outcomes {
+            encode_option_pubkey(&mut buf, &outcome.mint);
+            buf.extend_from_slice(outcome.account.as_ref());
+            buf.extend_from_slice(&outcome.amount.to_le_bytes());
         }
+
         buf.extend_from_slice(&self.deadline.to_le_bytes());
         buf.extend_from_slice(&self.salt);
         buf.extend_from_slice(self.executor.as_ref());
@@ -51,8 +50,7 @@ impl IntentHeader {
 
     /// Strict decoder. Rejects non-canonical forms:
     ///   - option tags outside {0, 1}
-    ///   - fee_count > MAX_FEES
-    ///   - fee_recipients not strictly sorted (or duplicate pubkeys)
+    ///   - outcome_count > MAX_OUTCOMES
     ///   - cursor != bytes.len() at end
     pub fn decode(bytes: &[u8]) -> Result<Self> {
         let mut cursor = 0usize;
@@ -60,23 +58,23 @@ impl IntentHeader {
         let user = read_pubkey(bytes, &mut cursor)?;
         let src_mint = read_option_pubkey(bytes, &mut cursor)?;
         let amount_in = read_u64(bytes, &mut cursor)?;
-        let out_mint = read_option_pubkey(bytes, &mut cursor)?;
-        let receiver = read_pubkey(bytes, &mut cursor)?;
-        let min_amount_out = read_u64(bytes, &mut cursor)?;
 
-        let fee_count = read_u8(bytes, &mut cursor)? as usize;
-        if fee_count > MAX_FEES {
+        let outcome_count = read_u8(bytes, &mut cursor)? as usize;
+        if outcome_count > MAX_OUTCOMES {
             return Err(IntentError::MalformedHeader.into());
         }
 
-        let mut fee_recipients = Vec::with_capacity(fee_count);
-        for _ in 0..fee_count {
-            let pk = read_pubkey(bytes, &mut cursor)?;
-            let amt = read_u64(bytes, &mut cursor)?;
-            fee_recipients.push((pk, amt));
+        let mut outcomes = Vec::with_capacity(outcome_count);
+        for _ in 0..outcome_count {
+            let mint = read_option_pubkey(bytes, &mut cursor)?;
+            let account = read_pubkey(bytes, &mut cursor)?;
+            let amount = read_u64(bytes, &mut cursor)?;
+            outcomes.push(IntentOutcome {
+                mint,
+                account,
+                amount,
+            });
         }
-
-        validate_fee_sort(&fee_recipients)?;
 
         let deadline = read_i64(bytes, &mut cursor)?;
         let salt = read_bytes32(bytes, &mut cursor)?;
@@ -90,10 +88,7 @@ impl IntentHeader {
             user,
             src_mint,
             amount_in,
-            out_mint,
-            receiver,
-            min_amount_out,
-            fee_recipients,
+            outcomes,
             deadline,
             salt,
             executor,
@@ -101,20 +96,9 @@ impl IntentHeader {
     }
 }
 
-fn validate_fee_sort(fees: &[(Pubkey, u64)]) -> Result<()> {
-    for w in fees.windows(2) {
-        let (pk_a, _) = &w[0];
-        let (pk_b, _) = &w[1];
-        // Duplicate pubkeys are rejected regardless of amount ordering.
-        if pk_a == pk_b {
-            return Err(IntentError::MalformedHeader.into());
-        }
-        // Pubkeys must be strictly ascending in lex order.
-        if pk_a.as_ref() >= pk_b.as_ref() {
-            return Err(IntentError::MalformedHeader.into());
-        }
-    }
-    Ok(())
+fn outcome_row_len(o: &IntentOutcome) -> usize {
+    let mint_len = if o.mint.is_some() { 33 } else { 1 };
+    mint_len + 32 + 8
 }
 
 fn encode_option_pubkey(buf: &mut Vec<u8>, opt: &Option<Pubkey>) {
@@ -191,17 +175,22 @@ fn read_option_pubkey(bytes: &[u8], cursor: &mut usize) -> Result<Option<Pubkey>
 mod tests {
     use super::*;
 
-    fn test_header() -> IntentHeader {
+    fn test_header_spl_outcomes() -> IntentHeader {
         IntentHeader {
             user: Pubkey::new_unique(),
             src_mint: Some(Pubkey::new_unique()),
             amount_in: 1_000_000,
-            out_mint: Some(Pubkey::new_unique()),
-            receiver: Pubkey::new_unique(),
-            min_amount_out: 950_000,
-            fee_recipients: vec![
-                (Pubkey::new_from_array([1u8; 32]), 10_000),
-                (Pubkey::new_from_array([2u8; 32]), 5_000),
+            outcomes: vec![
+                IntentOutcome {
+                    mint: Some(Pubkey::new_from_array([3u8; 32])),
+                    account: Pubkey::new_from_array([4u8; 32]),
+                    amount: 950_000,
+                },
+                IntentOutcome {
+                    mint: Some(Pubkey::new_from_array([5u8; 32])),
+                    account: Pubkey::new_from_array([6u8; 32]),
+                    amount: 10_000,
+                },
             ],
             deadline: 1_700_000_000,
             salt: [42u8; 32],
@@ -209,79 +198,81 @@ mod tests {
         }
     }
 
+    fn test_header_native_outcome() -> IntentHeader {
+        IntentHeader {
+            user: Pubkey::new_unique(),
+            src_mint: Some(Pubkey::new_unique()),
+            amount_in: 1_000_000,
+            outcomes: vec![IntentOutcome {
+                mint: None,
+                account: Pubkey::new_from_array([4u8; 32]),
+                amount: 950_000,
+            }],
+            deadline: 1_700_000_000,
+            salt: [42u8; 32],
+            executor: Pubkey::new_unique(),
+        }
+    }
+
     #[test]
-    fn encode_decode_roundtrip() {
-        let header = test_header();
+    fn encode_decode_roundtrip_spl() {
+        let header = test_header_spl_outcomes();
         let bytes = header.canonical_encode();
         let decoded = IntentHeader::decode(&bytes).unwrap();
         assert_eq!(decoded.canonical_encode(), bytes);
-
         assert_eq!(decoded.user, header.user);
         assert_eq!(decoded.src_mint, header.src_mint);
         assert_eq!(decoded.amount_in, header.amount_in);
-        assert_eq!(decoded.out_mint, header.out_mint);
-        assert_eq!(decoded.receiver, header.receiver);
-        assert_eq!(decoded.min_amount_out, header.min_amount_out);
+        assert_eq!(decoded.outcomes.len(), 2);
+        assert_eq!(decoded.outcomes[0].mint, header.outcomes[0].mint);
+        assert_eq!(decoded.outcomes[0].account, header.outcomes[0].account);
+        assert_eq!(decoded.outcomes[0].amount, header.outcomes[0].amount);
         assert_eq!(decoded.deadline, header.deadline);
         assert_eq!(decoded.salt, header.salt);
         assert_eq!(decoded.executor, header.executor);
     }
 
     #[test]
-    fn canonical_encode_sorts_fees() {
-        let mut header = test_header();
-        let fee_a = (Pubkey::new_from_array([1u8; 32]), 100);
-        let fee_b = (Pubkey::new_from_array([2u8; 32]), 200);
-        header.fee_recipients = vec![fee_b, fee_a];
-        let bytes_reversed = header.canonical_encode();
+    fn encode_decode_roundtrip_native() {
+        let header = test_header_native_outcome();
+        let bytes = header.canonical_encode();
+        let decoded = IntentHeader::decode(&bytes).unwrap();
+        assert_eq!(decoded.canonical_encode(), bytes);
+        assert_eq!(decoded.outcomes.len(), 1);
+        assert_eq!(decoded.outcomes[0].mint, None);
+        assert_eq!(decoded.outcomes[0].account, header.outcomes[0].account);
+        assert_eq!(decoded.outcomes[0].amount, header.outcomes[0].amount);
+    }
 
-        header.fee_recipients = vec![fee_a, fee_b];
-        let bytes_sorted = header.canonical_encode();
-
-        assert_eq!(bytes_reversed, bytes_sorted);
+    #[test]
+    fn native_outcome_is_shorter_than_spl() {
+        let native = test_header_native_outcome();
+        let spl = test_header_spl_outcomes();
+        let native_bytes = native.canonical_encode();
+        let spl_bytes = spl.canonical_encode();
+        assert!(native_bytes.len() < spl_bytes.len());
     }
 
     #[test]
     fn decode_rejects_bad_option_tag() {
-        let header = test_header();
+        let header = test_header_spl_outcomes();
         let mut bytes = header.canonical_encode();
         bytes[32] = 2; // corrupt src_mint tag
         assert!(IntentHeader::decode(&bytes).is_err());
     }
 
     #[test]
-    fn decode_rejects_fee_count_over_max() {
-        let header = test_header();
+    fn decode_rejects_outcome_count_over_max() {
+        let header = test_header_spl_outcomes();
         let mut bytes = header.canonical_encode();
-        // Find fee_count position: user(32) + src_mint(33) + amount_in(8) +
-        // out_mint(33) + receiver(32) + min_amount_out(8) = 146
-        bytes[146] = 5;
+        // user(32) + src_mint(33) + amount_in(8) = 73
+        bytes[73] = 5;
         assert!(IntentHeader::decode(&bytes).is_err());
     }
 
     #[test]
-    fn decode_rejects_unsorted_fees() {
-        let fee_a = (Pubkey::new_from_array([1u8; 32]), 100);
-        let fee_b = (Pubkey::new_from_array([2u8; 32]), 200);
-        let mut header = test_header();
-        header.fee_recipients = vec![fee_b, fee_a];
-
-        // Encode with manual (wrong) sort — hack the bytes directly
-        let sorted_bytes = header.canonical_encode();
-        // Swap the two 40-byte fee entries in the encoded bytes
-        let fee_start = 147; // 146 (fee_count byte) + 1
-        let mut unsorted = sorted_bytes.clone();
-        let entry_a = unsorted[fee_start..fee_start + 40].to_vec();
-        let entry_b = unsorted[fee_start + 40..fee_start + 80].to_vec();
-        unsorted[fee_start..fee_start + 40].copy_from_slice(&entry_b);
-        unsorted[fee_start + 40..fee_start + 80].copy_from_slice(&entry_a);
-
-        assert!(IntentHeader::decode(&unsorted).is_err());
-    }
-
-    #[test]
     fn decode_rejects_trailing_bytes() {
-        let header = test_header();
+        let header = test_header_spl_outcomes();
         let mut bytes = header.canonical_encode();
         bytes.push(0);
         assert!(IntentHeader::decode(&bytes).is_err());
@@ -289,38 +280,72 @@ mod tests {
 
     #[test]
     fn decode_rejects_truncated_bytes() {
-        let header = test_header();
+        let header = test_header_spl_outcomes();
         let bytes = header.canonical_encode();
         assert!(IntentHeader::decode(&bytes[..bytes.len() - 1]).is_err());
     }
 
     #[test]
     fn none_options_roundtrip() {
-        let mut header = test_header();
+        let mut header = test_header_native_outcome();
         header.src_mint = None;
-        header.out_mint = None;
-        header.fee_recipients = vec![];
+        header.outcomes = vec![];
         let bytes = header.canonical_encode();
         let decoded = IntentHeader::decode(&bytes).unwrap();
         assert_eq!(decoded.src_mint, None);
-        assert_eq!(decoded.out_mint, None);
-        assert!(decoded.fee_recipients.is_empty());
+        assert!(decoded.outcomes.is_empty());
     }
 
     #[test]
     fn executor_roundtrip() {
-        let header = test_header();
+        let header = test_header_spl_outcomes();
         let bytes = header.canonical_encode();
         let decoded = IntentHeader::decode(&bytes).unwrap();
         assert_eq!(decoded.executor, header.executor);
     }
 
     #[test]
-    fn decode_rejects_duplicate_fee_pubkey() {
-        let pk = Pubkey::new_from_array([1u8; 32]);
-        let mut header = test_header();
-        header.fee_recipients = vec![(pk, 100), (pk, 200)];
+    fn outcomes_preserve_declared_order() {
+        let header = test_header_spl_outcomes();
         let bytes = header.canonical_encode();
+        let decoded = IntentHeader::decode(&bytes).unwrap();
+        for (i, outcome) in decoded.outcomes.iter().enumerate() {
+            assert_eq!(outcome.mint, header.outcomes[i].mint);
+            assert_eq!(outcome.account, header.outcomes[i].account);
+            assert_eq!(outcome.amount, header.outcomes[i].amount);
+        }
+    }
+
+    #[test]
+    fn decode_rejects_bad_outcome_mint_tag() {
+        let header = test_header_spl_outcomes();
+        let mut bytes = header.canonical_encode();
+        // outcome_count is at offset 73, first outcome mint tag is at offset 74
+        bytes[74] = 2;
         assert!(IntentHeader::decode(&bytes).is_err());
+    }
+
+    #[test]
+    fn zero_amount_outcome_allowed() {
+        let mut header = test_header_native_outcome();
+        header.outcomes[0].amount = 0;
+        let bytes = header.canonical_encode();
+        let decoded = IntentHeader::decode(&bytes).unwrap();
+        assert_eq!(decoded.outcomes[0].amount, 0);
+    }
+
+    #[test]
+    fn max_outcomes_roundtrip() {
+        let mut header = test_header_spl_outcomes();
+        header.outcomes = (0..MAX_OUTCOMES)
+            .map(|i| IntentOutcome {
+                mint: Some(Pubkey::new_from_array([i as u8 + 10; 32])),
+                account: Pubkey::new_from_array([i as u8 + 20; 32]),
+                amount: (i as u64 + 1) * 1000,
+            })
+            .collect();
+        let bytes = header.canonical_encode();
+        let decoded = IntentHeader::decode(&bytes).unwrap();
+        assert_eq!(decoded.outcomes.len(), MAX_OUTCOMES);
     }
 }

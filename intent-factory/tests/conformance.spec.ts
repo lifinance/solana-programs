@@ -10,7 +10,7 @@ import {
   decodeCalls,
   computeIntentHash,
 } from "../ts-client/src/index.js"
-import type { IntentHeader, CallSpecLike } from "../ts-client/src/index.js"
+import type { IntentHeader, IntentOutcome, CallSpecLike } from "../ts-client/src/index.js"
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2)
@@ -35,13 +35,11 @@ function buildHeaderFromFixture(): IntentHeader {
     user: new PublicKey(hexToBytes(h.user)),
     srcMint: h.src_mint ? new PublicKey(hexToBytes(h.src_mint)) : null,
     amountIn: BigInt(h.amount_in),
-    outMint: h.out_mint ? new PublicKey(hexToBytes(h.out_mint)) : null,
-    receiver: new PublicKey(hexToBytes(h.receiver)),
-    minAmountOut: BigInt(h.min_amount_out),
-    feeRecipients: h.fee_recipients.map(
-      (f: { pubkey: string; amount: number }) => ({
-        pubkey: new PublicKey(hexToBytes(f.pubkey)),
-        amount: BigInt(f.amount),
+    outcomes: h.outcomes.map(
+      (o: { mint: string; account: string; amount: number }) => ({
+        mint: o.mint === "null" ? null : new PublicKey(hexToBytes(o.mint)),
+        account: new PublicKey(hexToBytes(o.account)),
+        amount: BigInt(o.amount),
       })
     ),
     deadline: BigInt(h.deadline),
@@ -87,11 +85,8 @@ describe("Protocol Conformance", () => {
       const headerBytes = hexToBytes(fixture.header_bytes)
       const decoded = decodeIntentHeader(headerBytes)
       expect(decoded.amountIn).toBe(BigInt(fixture.header.amount_in))
-      expect(decoded.minAmountOut).toBe(BigInt(fixture.header.min_amount_out))
       expect(decoded.deadline).toBe(BigInt(fixture.header.deadline))
-      expect(decoded.feeRecipients.length).toBe(
-        fixture.header.fee_recipients.length
-      )
+      expect(decoded.outcomes.length).toBe(fixture.header.outcomes.length)
     })
   })
 
@@ -167,10 +162,10 @@ describe("Protocol Conformance", () => {
       expect(() => decodeIntentHeader(bytes)).toThrow("MalformedHeader")
     })
 
-    it("rejects fee_count > 4", () => {
+    it("rejects outcome_count > MAX_OUTCOMES", () => {
       const bytes = hexToBytes(fixture.header_bytes)
-      // user(32) + src_mint(33) + amount_in(8) + out_mint(33) + receiver(32) + min_amount_out(8) = 146
-      bytes[146] = 5
+      // user(32) + src_mint(33) + amount_in(8) = 73
+      bytes[73] = 5
       expect(() => decodeIntentHeader(bytes)).toThrow("MalformedHeader")
     })
 
@@ -199,7 +194,7 @@ describe("Protocol Conformance", () => {
       expect(() =>
         encodeCalls([
           {
-            programIx: 3,
+            programIx: 1,
             accounts: [0],
             isWritable: [true],
             isSigner: [false],
@@ -213,7 +208,7 @@ describe("Protocol Conformance", () => {
       expect(() =>
         encodeCalls([
           {
-            programIx: 4,
+            programIx: 2,
             accounts: [0],
             isWritable: [true],
             isSigner: [false],
@@ -224,10 +219,9 @@ describe("Protocol Conformance", () => {
     })
 
     it("rejects non-zero trailing bitmap bits", () => {
-      // Manually craft wire bytes with bad bitmap
       const buf = new Uint8Array([
         1,    // num_calls = 1
-        4,    // program_ix = 4
+        2,    // program_ix = 2
         1,    // acc_count = 1
         0,    // accounts[0] = 0
         0b11111101, // bitmap with trailing bits set
