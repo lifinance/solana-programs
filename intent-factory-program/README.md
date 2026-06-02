@@ -15,10 +15,10 @@ Built with `solana-program` (no Anchor).
 
 ### Instruction summary
 
-| Variant | Instruction | File | Purpose |
-| --- | --- | --- | --- |
-| `0` | `execute` | `src/instructions/execute.rs` | Run CPI route, enforce `min` deltas, require source drained, cleanup vault. |
-| `1` | `refund` | `src/instructions/refund.rs` | Re-derive same intent PDA and return funds to funder. |
+| Variant | Instruction | File                          | Purpose                                                                     |
+| ------- | ----------- | ----------------------------- | --------------------------------------------------------------------------- |
+| `0`     | `execute`   | `src/instructions/execute.rs` | Run CPI route, enforce `min` deltas, require source drained, cleanup vault. |
+| `1`     | `refund`    | `src/instructions/refund.rs`  | Re-derive same intent PDA and return funds to funder.                       |
 
 ### Shared intent/PDA model
 
@@ -63,26 +63,26 @@ Postcondition caveat: see [Known limitation: dust griefing on `execute`](#known-
 
 ### `execute` instruction data layout (`rest` after variant byte)
 
-| Offset | Size | Field | Notes |
-| --- | --- | --- | --- |
-| `0` | `8` | `amount_in` | `u64` LE |
-| `8` | `32` | `salt` | bytes |
-| `40` | `1` | `transfer_nb` | `1..=8` |
-| `41` | `8 * transfer_nb` | `transfer_min_amounts[]` | `u64` LE each |
-| next | `1` | `cpi_count` | `1..=16` |
-| next | variable | CPI blocks | repeated `cpi_count` times |
+| Offset | Size              | Field                    | Notes                      |
+| ------ | ----------------- | ------------------------ | -------------------------- |
+| `0`    | `8`               | `amount_in`              | `u64` LE                   |
+| `8`    | `32`              | `salt`                   | bytes                      |
+| `40`   | `1`               | `transfer_nb`            | `1..=8`                    |
+| `41`   | `8 * transfer_nb` | `transfer_min_amounts[]` | `u64` LE each              |
+| next   | `1`               | `cpi_count`              | `1..=16`                   |
+| next   | variable          | CPI blocks               | repeated `cpi_count` times |
 
 No destination pubkeys in `execute` data; transfer-check destinations are in accounts.
 
 #### One CPI block
 
-| Field | Size | Notes |
-| --- | --- | --- |
-| `acc_count` | `1` | `1..=128`; CPI slice length (`0` index is callee program id) |
-| `override_count` | `1` | `0..=32` |
-| overrides | `2 * override_count` | repeated `(pos, flags)` |
-| `inner_data_len` | `2` | `u16` LE |
-| `inner_data` | `inner_data_len` | opaque bytes for callee |
+| Field            | Size                 | Notes                                                        |
+| ---------------- | -------------------- | ------------------------------------------------------------ |
+| `acc_count`      | `1`                  | `1..=128`; CPI slice length (`0` index is callee program id) |
+| `override_count` | `1`                  | `0..=32`                                                     |
+| overrides        | `2 * override_count` | repeated `(pos, flags)`                                      |
+| `inner_data_len` | `2`                  | `u16` LE                                                     |
+| `inner_data`     | `inner_data_len`     | opaque bytes for callee                                      |
 
 Trailing bytes after last CPI block are rejected (`InvalidInstructionData`).
 
@@ -110,12 +110,12 @@ Trailing bytes after last CPI block are rejected (`InvalidInstructionData`).
 
 ### `refund` instruction data layout (`rest` after variant byte)
 
-| Offset | Size | Field | Notes |
-| --- | --- | --- | --- |
-| `0` | `8` | `amount_in` | `u64` LE |
-| `8` | `32` | `salt` | bytes |
-| `40` | `1` | `transfer_nb` | `1..=8` |
-| `41` | repeated | `(dest_pubkey, min_amount)` | each pair = `32 + 8` bytes |
+| Offset | Size     | Field                       | Notes                      |
+| ------ | -------- | --------------------------- | -------------------------- |
+| `0`    | `8`      | `amount_in`                 | `u64` LE                   |
+| `8`    | `32`     | `salt`                      | bytes                      |
+| `40`   | `1`      | `transfer_nb`               | `1..=8`                    |
+| `41`   | repeated | `(dest_pubkey, min_amount)` | each pair = `32 + 8` bytes |
 
 Exact-length parsing: trailing bytes are rejected (`InvalidInstructionData`).
 
@@ -142,24 +142,24 @@ SPL-only tail:
 
 Custom errors (`ProgramError::Custom(N)`):
 
-| `N` | Variant | Meaning |
-| --- | --- | --- |
-| `0` | `InvalidPda` | Derived PDA mismatch |
-| `1` | `MinAmountNotMet` | `execute`: destination delta below min |
-| `2` | `WrongTokenProgram` | `from_program` is not System / SPL Token / SPL Token-2022 |
-| `3` | `InvalidTransferNb` | `transfer_nb == 0` or `> 8` |
-| `4` | `InsufficientData` | Truncated instruction data |
-| `5` | `NotEnoughAccounts` | Account list too short |
-| `6` | `FromAtaNotEmpty` | `execute`: SPL source ATA not fully drained after CPIs |
-| `8` | `InvalidCpiCount` | `execute`: `cpi_count == 0` or `> 16` |
-| `9` | `InvalidCpiAccountSpec` | `execute`: invalid CPI `acc_count` / `override_count` / override position |
-| `10` | `CpiToSelfNotAllowed` | `execute`: inner CPI targets this program |
-| `11` | `CpiProgramDenied` | `execute`: inner CPI target is on denylist |
-| `12` | `InnerSignerNotAllowed` | `execute`: unauthorized inner signer escalation |
-| `13` | `WritableEscalationNotAllowed` | `execute`: unauthorized writable escalation |
-| `14` | `SolSourcePdaNotDrained` | `execute`: SOL PDA lamports after CPIs not equal to `Rent::minimum_balance(0)` |
-| `15` | `InvalidSourceAta` | SPL source ATA is not canonical/valid for `(pda, mint, token_program)` |
-| `16` | `InvalidDestinationAta` | `refund`: destination ATA/mint mismatch for funder |
+| `N`  | Variant                        | Meaning                                                                        |
+| ---- | ------------------------------ | ------------------------------------------------------------------------------ |
+| `0`  | `InvalidPda`                   | Derived PDA mismatch                                                           |
+| `1`  | `MinAmountNotMet`              | `execute`: destination delta below min                                         |
+| `2`  | `WrongTokenProgram`            | `from_program` is not System / SPL Token / SPL Token-2022                      |
+| `3`  | `InvalidTransferNb`            | `transfer_nb == 0` or `> 8`                                                    |
+| `4`  | `InsufficientData`             | Truncated instruction data                                                     |
+| `5`  | `NotEnoughAccounts`            | Account list too short                                                         |
+| `6`  | `FromAtaNotEmpty`              | `execute`: SPL source ATA not fully drained after CPIs                         |
+| `8`  | `InvalidCpiCount`              | `execute`: `cpi_count == 0` or `> 16`                                          |
+| `9`  | `InvalidCpiAccountSpec`        | `execute`: invalid CPI `acc_count` / `override_count` / override position      |
+| `10` | `CpiToSelfNotAllowed`          | `execute`: inner CPI targets this program                                      |
+| `11` | `CpiProgramDenied`             | `execute`: inner CPI target is on denylist                                     |
+| `12` | `InnerSignerNotAllowed`        | `execute`: unauthorized inner signer escalation                                |
+| `13` | `WritableEscalationNotAllowed` | `execute`: unauthorized writable escalation                                    |
+| `14` | `SolSourcePdaNotDrained`       | `execute`: SOL PDA lamports after CPIs not equal to `Rent::minimum_balance(0)` |
+| `15` | `InvalidSourceAta`             | SPL source ATA is not canonical/valid for `(pda, mint, token_program)`         |
+| `16` | `InvalidDestinationAta`        | `refund`: destination ATA/mint mismatch for funder                             |
 
 Code `7` is reserved.
 
@@ -188,8 +188,63 @@ This is a liveness/griefing tradeoff, not a direct fund-loss vector. Funds remai
 
 ## Build
 
+### a) What you need
+
+This crate targets the **Solana 2.3** dependency line (`solana-program = "2.3"`, `solana-program-test = "2.3"`, edition 2021). Two independent toolchains are involved, each used for a different task:
+
+| Toolchain                              | Used by                                                          | Required version                                                                  |
+| -------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Host Rust (`rustc` / `cargo`)          | `cargo test` (host-side `solana-program-test` integration tests) | `1.84+` (validated on `1.86.0`)                                                   |
+| Agave/Solana CLI (`cargo build-sbf`)   | building the on-chain `.so`                                      | `solana-cli 2.1+` (validated with `solana-cargo-build-sbf 2.1.21`, platform-tools `v1.43`, rustc `1.79`) |
+
+Key points:
+
+- The integration tests run the program **in-process** (`processor!`), so `cargo test` only needs **host Rust** — no `.so` build, no Agave CLI.
+- `cargo build-sbf` does **not** use your host Rust toolchain — it uses the `rustc` bundled in its platform-tools. Verify with `cargo build-sbf --version`.
+- Do not upgrade this crate to the Solana 3.x/4.x crate line without also moving the CLI to a platform-tools build whose `rustc` supports those crates (the 3.0 line pulls `edition2024` transitive deps that need `rustc ≥ 1.85`).
+
+### b) How to get there
+
+**From scratch.** Install the two toolchains:
+
 ```bash
+# Host Rust (rustup)
+rustup toolchain install 1.86.0
+
+# Agave/Solana CLI (provides cargo build-sbf)
+agave-install init 2.1.21          # or: solana-install init 2.1.21
+```
+
+**If you already have other versions installed.** Host Rust and the Agave CLI are selected independently:
+
+```bash
+# Host Rust (affects `cargo test`). Prefer a folder-local pin so other repos are untouched:
+#   Option A — create rust-toolchain.toml in this crate:
+#     [toolchain]
+#     channel = "1.86.0"
+#   Option B — one-off override for this directory:
+rustup override set 1.86.0         # rustup override unset  # to remove later
+
+# Agave/Solana CLI (affects `cargo build-sbf`). This sets the *globally active*
+# release for your machine, so re-init it when you come back to this crate:
+agave-install init 2.1.21          # or: solana-install init 2.1.21
+```
+
+Verify both before building:
+
+```bash
+rustc --version                    # expect 1.84+ (e.g. 1.86.0)
+cargo build-sbf --version          # expect solana-cargo-build-sbf 2.1.21 / platform-tools v1.43 / rustc 1.79
+```
+
+### Commands
+
+```bash
+# Build the on-chain program
 cargo build-sbf
+
+# Run unit + integration tests (host Rust only)
+cargo test
 ```
 
 Note: keep `Cargo.lock` compatible with the Solana SBF toolchain; updating transitive crates blindly can break SBF builds due to Rust/toolchain version drift.
