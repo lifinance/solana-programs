@@ -24,6 +24,7 @@
     "build:types": "tsc --project ./tsconfig.build.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap && eslint --fix --cache .",
     "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo",
     "test": "vitest",
+    "test:affected": "vitest run --since-last-run",
     "lint:fix": "eslint . --fix --ext .ts",
     "lint:fix:cached": "eslint . --cache --fix --ext .ts",
     "release": "standard-version -a",
@@ -40,14 +41,15 @@
     "@eslint/js": "^9.10.0",
     "standard-version": "^9.5.0",
     "@types/eslint__js": "^8.42.3",
-    "@types/node": "^22.1.0",
+    "@types/node": "^22.12.0",
     "eslint": "^9.10.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "prettier": "3.3.3",
     "typescript": "5.5.4",
     "typescript-eslint": "^8.5.0",
-    "vitest": "^2.1.5"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   },
   "files": [
     "dist/**",
