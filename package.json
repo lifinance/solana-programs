@@ -18,18 +18,20 @@
   "types": "./dist/_types/index.d.ts",
   "typings": "./dist/_types/index.d.ts",
   "scripts": {
-    "build": "pnpm clean && pnpm build:cjs && pnpm build:esm && pnpm build:types && eslint --fix --cache .",
-    "build:cjs": "tsc --project ./tsconfig.build.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json  && eslint --fix --cache .",
-    "build:esm": "tsc --project ./tsconfig.build.json --module es2020 --outDir ./dist/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./dist/_esm/package.json && eslint --fix --cache .",
-    "build:types": "tsc --project ./tsconfig.build.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap && eslint --fix --cache .",
+    "build": "pnpm clean && pnpm build:cjs && pnpm build:esm && pnpm build:types && oxlint --fix && oxfmt",
+    "build:cjs": "tsc --project ./tsconfig.build.json --module commonjs --outDir ./dist/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./dist/_cjs/package.json  && oxlint --fix && oxfmt",
+    "build:esm": "tsc --project ./tsconfig.build.json --module es2020 --outDir ./dist/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./dist/_esm/package.json && oxlint --fix && oxfmt",
+    "build:types": "tsc --project ./tsconfig.build.json --module esnext --declarationDir ./dist/_types --emitDeclarationOnly --declaration --declarationMap && oxlint --fix && oxfmt",
     "clean": "rm -rf dist tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo",
     "test": "vitest",
     "test:affected": "vitest run --since-last-run",
-    "lint:fix": "eslint . --fix --ext .ts",
-    "lint:fix:cached": "eslint . --cache --fix --ext .ts",
+    "lint:fix": "oxlint --fix",
     "release": "standard-version -a",
     "release:alpha": "standard-version -a --prerelease alpha --skip.changelog",
-    "release:beta": "standard-version -a --prerelease beta --skip.changelog"
+    "release:beta": "standard-version -a --prerelease beta --skip.changelog",
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.0",
@@ -38,16 +40,11 @@
     "buffer": "^6.0.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.10.0",
-    "standard-version": "^9.5.0",
-    "@types/eslint__js": "^8.42.3",
     "@types/node": "^26.6.6",
-    "eslint": "^9.10.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "prettier": "3.3.3",
+    "oxfmt": "^0.76.0",
+    "oxlint": "^1.91.0",
+    "standard-version": "^9.5.0",
     "typescript": "5.5.4",
-    "typescript-eslint": "^8.5.0",
     "vite": "^8.3.6",
     "vitest": "^5.1.0"
   },
