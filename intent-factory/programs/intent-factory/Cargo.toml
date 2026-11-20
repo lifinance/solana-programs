@@ -1,0 +1,25 @@
+[package]
+name = "intent-factory"
+version = "0.1.0"
+description = "LI.FI stateless intent-binding executor for Solana"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "intent_factory"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.1" }
+anchor-spl = { version = "0.31.1", features = ["token", "associated_token"] }
+
+[dev-dependencies]
+hex = "0.4"

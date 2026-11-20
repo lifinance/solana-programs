@@ -9,6 +9,10 @@ node_modules/
 *.tsbuildinfo
 
 
+# Environment secrets
+.env
+.env.local
+
 .keypairs/
 
 dist
